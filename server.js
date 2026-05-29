@@ -164,14 +164,17 @@ function sendSimulatedEmail(participant) {
 // Helper: Send real email using SMTP with premium Apple Wallet design
 async function sendRealEmail(emailObj, participant) {
   try {
+    const port = parseInt(smtpConfig.port) || 587;
     const transporter = nodemailer.createTransport({
       host: smtpConfig.host,
-      port: parseInt(smtpConfig.port),
-      secure: smtpConfig.port === '465', // true for 465, false for other ports
+      port: port,
+      secure: port === 465,        // SSL solo per porta 465
+      requireTLS: port === 587,    // STARTTLS per porta 587 (funziona su Render)
       auth: {
         user: smtpConfig.user,
         pass: smtpConfig.pass
-      }
+      },
+      tls: { rejectUnauthorized: false }
     });
 
     const htmlContent = `
@@ -581,11 +584,14 @@ app.get('/api/test-email', async (req, res) => {
         smtpConfig: { host: smtpConfig.host, port: smtpConfig.port, user: smtpConfig.user, enabled: smtpConfig.enabled }
       });
     }
+    const testPort = parseInt(smtpConfig.port) || 587;
     const transporter = require('nodemailer').createTransport({
       host: smtpConfig.host,
-      port: parseInt(smtpConfig.port),
-      secure: smtpConfig.port === '465' || smtpConfig.port === 465,
-      auth: { user: smtpConfig.user, pass: smtpConfig.pass }
+      port: testPort,
+      secure: testPort === 465,
+      requireTLS: testPort === 587,
+      auth: { user: smtpConfig.user, pass: smtpConfig.pass },
+      tls: { rejectUnauthorized: false }
     });
     await transporter.verify();
     await transporter.sendMail({
