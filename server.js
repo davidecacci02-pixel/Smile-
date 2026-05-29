@@ -230,11 +230,7 @@ async function sendViaBrevo(emailObj, participant) {
     sender: { name: senderName, email: senderEmail },
     to: [{ email: emailObj.to }],
     subject: emailObj.subject,
-    htmlContent: htmlContent,
-    attachment: [{
-      content: participant.qrCode.split(',')[1],
-      name: 'biglietto-qr.png'
-    }]
+    htmlContent: htmlContent
   });
 
   return new Promise((resolve, reject) => {
@@ -282,27 +278,27 @@ async function sendViaBrevo(emailObj, participant) {
   });
 }
 
-// Helper: costruisce l'HTML dell'email biglietto
+// Helper: costruisce l'HTML dell'email biglietto con design premium a tema chiaro (massima compatibilità)
 function buildEmailHtml(participant, qrCodeSrc) {
   return `
     <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
       <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
         <tr>
           <td style="padding: 24px;">
-            <p style="font-size: 14px; color: #4b5563; margin-top: 0; margin-bottom: 6px; font-weight: 600;">Ciao ${participant.name} ${participant.surname},</p>
-            <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">ecco il pass ufficiale d'ingresso digitale per partecipare all'evento. Ti preghiamo di mostrare il codice QR al personale all'ingresso.</p>
+            <p style="font-size: 14px; color: #0f172a; margin-top: 0; margin-bottom: 6px; font-weight: 600;">Ciao ${participant.name} ${participant.surname},</p>
+            <p style="font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">ecco il pass ufficiale d'ingresso digitale per partecipare all'evento. Ti preghiamo di mostrare il codice QR al personale all'ingresso.</p>
             
-            <!-- Ticket Card -->
-            <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; background: linear-gradient(145deg, #0b0f19 0%, #030712 100%); border-radius: 16px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+            <!-- Ticket Card (Tema Chiaro ad Alto Contrasto) -->
+            <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 2px solid #f1f5f9; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
               <!-- Ticket Header -->
               <tr>
-                <td style="padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                <td style="padding: 20px; border-bottom: 2px dashed #f1f5f9; background-color: #fafafa;">
                   <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
                     <tr>
                       <td style="font-size: 24px; width: 36px; vertical-align: middle; line-height: 1;">🎟️</td>
                       <td style="vertical-align: middle;">
-                        <div style="font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.2;">${eventConfig.title}</div>
-                        <div style="display: inline-block; font-size: 8px; font-weight: 700; color: #c084fc; background-color: rgba(168, 85, 247, 0.15); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.8px; margin-top: 3px; text-transform: uppercase;">BIGLIETTO DIGITALE</div>
+                        <div style="font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px; line-height: 1.2;">${eventConfig.title}</div>
+                        <div style="display: inline-block; font-size: 8px; font-weight: 700; color: #7c3aed; background-color: #f3e8ff; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.8px; margin-top: 3px; text-transform: uppercase;">BIGLIETTO DIGITALE</div>
                       </td>
                     </tr>
                   </table>
@@ -314,25 +310,25 @@ function buildEmailHtml(participant, qrCodeSrc) {
                   <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; font-size: 11px;">
                     <tr>
                       <td style="width: 55%; padding-bottom: 12px; vertical-align: top;">
-                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">PARTECIPANTE</div>
-                        <div style="color: #ffffff; font-size: 14px; font-weight: bold;">${participant.name} ${participant.surname}</div>
+                        <div style="color: #64748b; font-size: 9px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">PARTECIPANTE</div>
+                        <div style="color: #0f172a; font-size: 14px; font-weight: bold;">${participant.name} ${participant.surname}</div>
                       </td>
                       <td style="width: 45%; text-align: right; vertical-align: top; padding-bottom: 12px;">
-                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">TICKET ID</div>
-                        <div style="color: #c084fc; font-size: 13px; font-weight: bold; font-family: monospace;">${participant.id}</div>
+                        <div style="color: #64748b; font-size: 9px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">TICKET ID</div>
+                        <div style="color: #7c3aed; font-size: 13px; font-weight: bold; font-family: monospace;">${participant.id}</div>
                       </td>
                     </tr>
                     <tr>
                       <td style="vertical-align: top; padding-top: 4px;">
-                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">📅 DATA & ORA</div>
-                        <div style="color: #ffffff; font-size: 13px; font-weight: bold; line-height: 1.3;">
+                        <div style="color: #64748b; font-size: 9px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">📅 DATA & ORA</div>
+                        <div style="color: #0f172a; font-size: 13px; font-weight: bold; line-height: 1.3;">
                           <span>${formatDateIt(eventConfig.date)}</span><br>
-                          <span style="font-size: 11px; opacity: 0.85;">Ore ${eventConfig.time}</span>
+                          <span style="font-size: 11px; opacity: 0.85; color: #475569;">Ore ${eventConfig.time}</span>
                         </div>
                       </td>
                       <td style="text-align: right; vertical-align: top; padding-top: 4px;">
-                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">📍 LUOGO</div>
-                        <div style="color: #ffffff; font-size: 13px; font-weight: bold;">${eventConfig.location}</div>
+                        <div style="color: #64748b; font-size: 9px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">📍 LUOGO</div>
+                        <div style="color: #0f172a; font-size: 13px; font-weight: bold;">${eventConfig.location}</div>
                       </td>
                     </tr>
                   </table>
@@ -343,9 +339,9 @@ function buildEmailHtml(participant, qrCodeSrc) {
                 <td style="padding: 0 10px; height: 10px; background-color: transparent;">
                   <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
                     <tr>
-                      <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 0 10px 10px 0;"></td>
-                      <td style="border-bottom: 2px dashed rgba(255,255,255,0.15); height: 10px; vertical-align: middle;"></td>
-                      <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 10px 0 0 10px;"></td>
+                      <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 0 10px 10px 0; border-right: 2px solid #f1f5f9;"></td>
+                      <td style="border-bottom: 2px dashed #f1f5f9; height: 10px; vertical-align: middle;"></td>
+                      <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 10px 0 0 10px; border-left: 2px solid #f1f5f9;"></td>
                     </tr>
                   </table>
                 </td>
@@ -353,7 +349,7 @@ function buildEmailHtml(participant, qrCodeSrc) {
               <!-- Ticket QR Section -->
               <tr>
                 <td style="padding: 10px 20px 24px 20px; text-align: center;">
-                  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #ffffff; border-radius: 14px; padding: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);">
+                  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #ffffff; border-radius: 14px; padding: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
                     <tr>
                       <td>
                         <img src="${qrCodeSrc}" alt="QR Code" style="width: 140px; height: 140px; display: block;">
