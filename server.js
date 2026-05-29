@@ -186,97 +186,7 @@ async function sendRealEmail(emailObj, participant) {
       tls: { rejectUnauthorized: false }
     });
 
-    const htmlContent = `
-        <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
-          <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-            <tr>
-              <td style="padding: 24px;">
-                <p style="font-size: 14px; color: #4b5563; margin-top: 0; margin-bottom: 6px; font-weight: 600;">Ciao ${participant.name} ${participant.surname},</p>
-                <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">ecco il pass ufficiale d'ingresso digitale per partecipare all'evento. Ti preghiamo di mostrare il codice QR al personale all'ingresso.</p>
-                
-                <!-- Ticket Card -->
-                <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; background: linear-gradient(145deg, #0b0f19 0%, #030712 100%); border-radius: 16px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
-                  <!-- Ticket Header -->
-                  <tr>
-                    <td style="padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
-                      <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
-                        <tr>
-                          <td style="font-size: 24px; width: 36px; vertical-align: middle; line-height: 1;">🎟️</td>
-                          <td style="vertical-align: middle;">
-                            <div style="font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.2;">${eventConfig.title}</div>
-                            <div style="display: inline-block; font-size: 8px; font-weight: 700; color: #c084fc; background-color: rgba(168, 85, 247, 0.15); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.8px; margin-top: 3px; text-transform: uppercase;">BIGLIETTO DIGITALE</div>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <!-- Ticket Info -->
-                  <tr>
-                    <td style="padding: 20px;">
-                      <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; font-size: 11px;">
-                        <tr>
-                          <td style="width: 55%; padding-bottom: 12px; vertical-align: top;">
-                            <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">PARTECIPANTE</div>
-                            <div style="color: #ffffff; font-size: 14px; font-weight: bold;">${participant.name} ${participant.surname}</div>
-                          </td>
-                          <td style="width: 45%; text-align: right; vertical-align: top; padding-bottom: 12px;">
-                            <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">TICKET ID</div>
-                            <div style="color: #c084fc; font-size: 13px; font-weight: bold; font-family: monospace;">${participant.id}</div>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="vertical-align: top; padding-top: 4px;">
-                            <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">📅 DATA & ORA</div>
-                            <div style="color: #ffffff; font-size: 13px; font-weight: bold; line-height: 1.3;">
-                              <span>${formatDateIt(eventConfig.date)}</span><br>
-                              <span style="font-size: 11px; opacity: 0.85;">Ore ${eventConfig.time}</span>
-                            </div>
-                          </td>
-                          <td style="text-align: right; vertical-align: top; padding-top: 4px;">
-                            <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">📍 LUOGO</div>
-                            <div style="color: #ffffff; font-size: 13px; font-weight: bold;">${eventConfig.location}</div>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <!-- Perforated Divider -->
-                  <tr>
-                    <td style="padding: 0 10px; height: 10px; background-color: transparent;">
-                      <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
-                        <tr>
-                          <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 0 10px 10px 0;"></td>
-                          <td style="border-bottom: 2px dashed rgba(255,255,255,0.15); height: 10px; vertical-align: middle;"></td>
-                          <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 10px 0 0 10px;"></td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                  <!-- Ticket QR Section -->
-                  <tr>
-                    <td style="padding: 10px 20px 24px 20px; text-align: center;">
-                      <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #ffffff; border-radius: 14px; padding: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);">
-                        <tr>
-                          <td>
-                            <img src="cid:qrcode" alt="QR Code" style="width: 140px; height: 140px; display: block;">
-                          </td>
-                        </tr>
-                      </table>
-                      <div style="color: #64748b; font-size: 8px; font-weight: bold; margin-top: 8px; letter-spacing: 1px;">MOSTRA AL CHECK-IN</div>
-                    </td>
-                  </tr>
-                </table>
-                <!-- Info Footer Notice -->
-                <div style="margin-top: 20px; padding: 12px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: left;">
-                  <p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.4;">
-                    💡 Il biglietto è valido per un solo ingresso. All'arrivo, il codice verrà scansionato per convalidare l'accesso in tempo reale.
-                  </p>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
-    `;
+    const htmlContent = buildEmailHtml(participant, 'cid:qrcode');
 
     const mailOptions = {
       from: `"EventAccess" <${smtpConfig.user}>`,
@@ -314,7 +224,7 @@ async function sendRealEmail(emailObj, participant) {
 async function sendViaBrevo(emailObj, participant) {
   const senderEmail = process.env.BREVO_SENDER_EMAIL || smtpConfig.user || 'noreply@smile-eventi.com';
   const senderName = process.env.BREVO_SENDER_NAME || 'Smile Eventi';
-  const htmlContent = buildEmailHtml(participant);
+  const htmlContent = buildEmailHtml(participant, `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${participant.id}`);
 
   const payload = JSON.stringify({
     sender: { name: senderName, email: senderEmail },
@@ -373,32 +283,95 @@ async function sendViaBrevo(emailObj, participant) {
 }
 
 // Helper: costruisce l'HTML dell'email biglietto
-function buildEmailHtml(participant) {
+function buildEmailHtml(participant, qrCodeSrc) {
   return `
-    <div style="background-color:#f1f5f9;padding:30px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;text-align:center">
-      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:460px;margin:0 auto;text-align:left;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.05);border:1px solid #e2e8f0">
-        <tr><td style="padding:24px">
-          <p style="font-size:14px;color:#4b5563;margin:0 0 6px;font-weight:600">Ciao ${participant.name} ${participant.surname},</p>
-          <p style="font-size:13px;color:#64748b;line-height:1.5;margin:0 0 20px">ecco il tuo pass ufficiale d'ingresso per l'evento.</p>
-          <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:linear-gradient(145deg,#0b0f19 0%,#030712 100%);border-radius:16px;overflow:hidden;border:1px solid #1e293b">
-            <tr><td style="padding:20px">
-              <div style="font-size:15px;font-weight:800;color:#ffffff">${eventConfig.title}</div>
-              <div style="font-size:8px;font-weight:700;color:#c084fc;margin-top:4px">BIGLIETTO DIGITALE</div>
-            </td></tr>
-            <tr><td style="padding:0 20px 20px">
-              <div style="color:#94a3b8;font-size:9px;font-weight:bold;margin-bottom:3px">PARTECIPANTE</div>
-              <div style="color:#ffffff;font-size:14px;font-weight:bold">${participant.name} ${participant.surname}</div>
-              <div style="color:#94a3b8;font-size:9px;font-weight:bold;margin:10px 0 3px">DATA &amp; ORA</div>
-              <div style="color:#ffffff;font-size:13px;font-weight:bold">${formatDateIt(eventConfig.date)} — Ore ${eventConfig.time}</div>
-              <div style="color:#94a3b8;font-size:9px;font-weight:bold;margin:10px 0 3px">LUOGO</div>
-              <div style="color:#ffffff;font-size:13px;font-weight:bold">${eventConfig.location}</div>
-            </td></tr>
-            <tr><td style="padding:10px 20px 24px;text-align:center">
-              <img src="${participant.qrCode}" alt="QR Code" style="width:140px;height:140px;background:#fff;padding:10px;border-radius:12px;display:block;margin:0 auto">
-              <div style="color:#64748b;font-size:8px;font-weight:bold;margin-top:8px;letter-spacing:1px">MOSTRA AL CHECK-IN</div>
-            </td></tr>
-          </table>
-        </td></tr>
+    <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
+      <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+        <tr>
+          <td style="padding: 24px;">
+            <p style="font-size: 14px; color: #4b5563; margin-top: 0; margin-bottom: 6px; font-weight: 600;">Ciao ${participant.name} ${participant.surname},</p>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">ecco il pass ufficiale d'ingresso digitale per partecipare all'evento. Ti preghiamo di mostrare il codice QR al personale all'ingresso.</p>
+            
+            <!-- Ticket Card -->
+            <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; background: linear-gradient(145deg, #0b0f19 0%, #030712 100%); border-radius: 16px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+              <!-- Ticket Header -->
+              <tr>
+                <td style="padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                  <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+                    <tr>
+                      <td style="font-size: 24px; width: 36px; vertical-align: middle; line-height: 1;">🎟️</td>
+                      <td style="vertical-align: middle;">
+                        <div style="font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.2;">${eventConfig.title}</div>
+                        <div style="display: inline-block; font-size: 8px; font-weight: 700; color: #c084fc; background-color: rgba(168, 85, 247, 0.15); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.8px; margin-top: 3px; text-transform: uppercase;">BIGLIETTO DIGITALE</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Ticket Info -->
+              <tr>
+                <td style="padding: 20px;">
+                  <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; font-size: 11px;">
+                    <tr>
+                      <td style="width: 55%; padding-bottom: 12px; vertical-align: top;">
+                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">PARTECIPANTE</div>
+                        <div style="color: #ffffff; font-size: 14px; font-weight: bold;">${participant.name} ${participant.surname}</div>
+                      </td>
+                      <td style="width: 45%; text-align: right; vertical-align: top; padding-bottom: 12px;">
+                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">TICKET ID</div>
+                        <div style="color: #c084fc; font-size: 13px; font-weight: bold; font-family: monospace;">${participant.id}</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="vertical-align: top; padding-top: 4px;">
+                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">📅 DATA & ORA</div>
+                        <div style="color: #ffffff; font-size: 13px; font-weight: bold; line-height: 1.3;">
+                          <span>${formatDateIt(eventConfig.date)}</span><br>
+                          <span style="font-size: 11px; opacity: 0.85;">Ore ${eventConfig.time}</span>
+                        </div>
+                      </td>
+                      <td style="text-align: right; vertical-align: top; padding-top: 4px;">
+                        <div style="color: #94a3b8; font-size: 9px; font-weight: bold; margin-bottom: 3px;">📍 LUOGO</div>
+                        <div style="color: #ffffff; font-size: 13px; font-weight: bold;">${eventConfig.location}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Perforated Divider -->
+              <tr>
+                <td style="padding: 0 10px; height: 10px; background-color: transparent;">
+                  <table cellpadding="0" cellspacing="0" border="0" style="width: 100%;">
+                    <tr>
+                      <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 0 10px 10px 0;"></td>
+                      <td style="border-bottom: 2px dashed rgba(255,255,255,0.15); height: 10px; vertical-align: middle;"></td>
+                      <td style="width: 10px; height: 20px; background-color: #ffffff; border-radius: 10px 0 0 10px;"></td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Ticket QR Section -->
+              <tr>
+                <td style="padding: 10px 20px 24px 20px; text-align: center;">
+                  <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; background-color: #ffffff; border-radius: 14px; padding: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);">
+                    <tr>
+                      <td>
+                        <img src="${qrCodeSrc}" alt="QR Code" style="width: 140px; height: 140px; display: block;">
+                      </td>
+                    </tr>
+                  </table>
+                  <div style="color: #64748b; font-size: 8px; font-weight: bold; margin-top: 8px; letter-spacing: 1px;">MOSTRA AL CHECK-IN</div>
+                </td>
+              </tr>
+            </table>
+            <!-- Info Footer Notice -->
+            <div style="margin-top: 20px; padding: 12px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: left;">
+              <p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.4;">
+                💡 Il biglietto è valido per un solo ingresso. All'arrivo, il codice verrà scansionato per convalidare l'accesso in tempo reale.
+              </p>
+            </div>
+          </td>
+        </tr>
       </table>
     </div>`;
 }
