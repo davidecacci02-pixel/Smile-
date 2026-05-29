@@ -37,24 +37,36 @@ function broadcastEvent(type, data) {
   });
 }
 
-// SMTP config default
+// SMTP config: legge prima dalle variabili d'ambiente (Render), poi dal file locale
 let smtpConfig = { enabled: false, host: '', port: '465', user: '', pass: '' };
-if (fs.existsSync(SETTINGS_FILE)) {
+if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+  // Variabili d'ambiente impostate su Render (permanenti)
+  smtpConfig = {
+    enabled: true,
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || '465',
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  };
+  console.log('SMTP configurato tramite variabili d\'ambiente.');
+} else if (fs.existsSync(SETTINGS_FILE)) {
+  // Fallback: usa il file locale (sviluppo locale)
   try {
     smtpConfig = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    console.log('SMTP configurato tramite settings.json locale.');
   } catch (e) {
     console.error("Errore lettura settings.json:", e);
   }
 }
 
-// Event details config default
+// Event details config: legge prima dalle variabili d'ambiente, poi dal file locale
 let eventConfig = {
-  title: "Mio Evento Speciale",
-  date: new Date().toISOString().split('T')[0],
-  time: "20:00",
-  location: "Roma"
+  title: process.env.EVENT_TITLE || "Mio Evento Speciale",
+  date: process.env.EVENT_DATE || new Date().toISOString().split('T')[0],
+  time: process.env.EVENT_TIME || "20:00",
+  location: process.env.EVENT_LOCATION || "Roma"
 };
-if (fs.existsSync(EVENT_SETTINGS_FILE)) {
+if (!process.env.EVENT_TITLE && fs.existsSync(EVENT_SETTINGS_FILE)) {
   try {
     eventConfig = JSON.parse(fs.readFileSync(EVENT_SETTINGS_FILE, 'utf8'));
   } catch (e) {
