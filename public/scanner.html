@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventAccess - Scanner Check-in Staff</title>
+  <!-- SEO & Optimization -->
+  <meta name="description" content="Scanner per lo staff per il controllo degli accessi all'ingresso. Ottimizzato per uso all'aperto e smartphone.">
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- HTML5 QR Code library from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="scanner-page">
+
+  <!-- Header for Scanner Page -->
+  <div class="scanner-header">
+    <div class="logo" style="font-size: 1.2rem;">
+      <div class="logo-icon" style="width: 28px; height: 28px; font-size: 0.9rem; border-radius: 6px;">EA</div>
+      Check-in <span>Staff</span>
+    </div>
+    <div class="scanner-header-badge" id="camera-status-badge">Fotocamera Off</div>
+  </div>
+
+  <!-- Camera Scanner Viewport -->
+  <div class="scanner-viewport-container">
+    <!-- Camera feed rendering destination -->
+    <div id="reader"></div>
+    
+    <!-- Decorative Scan Area HUD -->
+    <div class="scanner-overlay" id="scanner-hud">
+      <div class="scanner-reticle">
+        <div class="scanner-reticle-corners"></div>
+        <div class="scanner-laser"></div>
+      </div>
+      
+      <div class="scanner-instructions">
+        Inquadra il QR Code del biglietto
+      </div>
+    </div>
+  </div>
+
+  <!-- Fallback Input Section for Manual Code Check -->
+  <div class="scanner-fallback">
+    <div class="scanner-fallback-title">Inserimento Manuale / Fallback</div>
+    <div class="scanner-fallback-controls">
+      <input type="text" id="manual-ticket-id" class="form-input" placeholder="Codice Biglietto (es: evt-mario-rossi-1234)" style="flex: 1;">
+      <button class="btn btn-primary" id="btn-manual-check" style="width: auto; padding: 0.75rem 1.25rem;">
+        Verifica
+      </button>
+    </div>
+    
+    <!-- File Input Fallback (Allows uploading image / screenshot of QR) -->
+    <div style="margin-top: 0.75rem; text-align: center;">
+      <label for="qr-file-input" style="font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; text-decoration: underline;">
+        Oppure carica una foto/screenshot del QR Code
+      </label>
+      <input type="file" id="qr-file-input" accept="image/*" style="display: none;">
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- OVERLAYS RISULTATI SCANSIONE (ALTO CONTRASTO) -->
+  <!-- ============================================== -->
+  
+  <!-- 1. SUCCESS OVERLAY: Access Allowed (GREEN) -->
+  <div id="overlay-success" class="result-overlay result-overlay-success">
+    <div class="result-overlay-icon">✔️</div>
+    <h2 class="result-overlay-title">ACCESSO CONSENTITO</h2>
+    <p class="result-overlay-desc" id="success-guest-name">Nome Cognome</p>
+    <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 0.5rem; font-family: monospace;">Biglietto valido</p>
+    <button class="result-overlay-close" id="btn-close-success">PROSSIMO INVILATO</button>
+  </div>
+
+  <!-- 2. ALREADY USED OVERLAY: Warning (RED) -->
+  <div id="overlay-warning" class="result-overlay result-overlay-warning">
+    <div class="result-overlay-icon">⚠️</div>
+    <h2 class="result-overlay-title">ATTENZIONE</h2>
+    <p class="result-overlay-desc" style="font-weight: bold; font-size: 1.4rem;">BIGLIETTO GIÀ UTILIZZATO</p>
+    <p class="result-overlay-desc" id="warning-guest-name" style="margin-top: 0.5rem;">Nome Cognome</p>
+    <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 1rem;" id="warning-use-time">Già scansionato in precedenza</p>
+    <button class="result-overlay-close" id="btn-close-warning" style="background-color: rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.3);">CHIUDI E RIPROVA</button>
+  </div>
+
+  <!-- 3. INVALID OVERLAY: Ticket Not Found / Cancelled (DARK GRAY) -->
+  <div id="overlay-error" class="result-overlay result-overlay-error">
+    <div class="result-overlay-icon">❌</div>
+    <h2 class="result-overlay-title" id="error-title">BIGLIETTO NON VALIDO</h2>
+    <p class="result-overlay-desc" id="error-desc">Il codice scansionato non è presente nel database o il biglietto è stato annullato.</p>
+    <button class="result-overlay-close" id="btn-close-error">CHIUDI E RIPROVA</button>
+  </div>
+
+  <!-- Client-side Scanner Logic -->
+  <script src="js/qr-scanner.js"></script>
+</body>
+</html>

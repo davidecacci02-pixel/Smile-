@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventAccess - Gestione Accessi Eventi</title>
+  <!-- SEO & Description -->
+  <meta name="description" content="Piattaforma professionale per la gestione degli accessi agli eventi, generazione di QR Code e automazione email di benvenuto.">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- QR Code generation library for client side -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</head>
+<body>
+
+  <!-- Navigation Header -->
+  <header>
+    <div class="logo" id="mainLogo">
+      <div class="logo-icon">EA</div>
+      Event<span>Access</span>
+    </div>
+    
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="dashboard" id="tab-dashboard-btn">
+        <i class="icon-dashboard"></i> Dashboard
+      </button>
+      <button class="tab-btn" data-tab="emails" id="tab-emails-btn">
+        <i class="icon-email"></i> Simulatore Email
+        <span id="unread-email-badge" style="display:none; background-color: var(--error); color: white; border-radius: 50%; padding: 0.1rem 0.4rem; font-size: 0.7rem; font-weight: bold; margin-left: 0.35rem;">0</span>
+      </button>
+      <button class="tab-btn" data-tab="settings" id="tab-settings-btn">
+        <i class="icon-settings"></i> Impostazioni SMTP
+      </button>
+    </nav>
+
+    <div>
+      <a href="scanner.html" target="_blank" class="btn btn-primary btn-sm" id="btn-open-scanner-link">
+        <i class="icon-scan"></i> Apri Scanner Staff
+      </a>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- TAB 1: DASHBOARD AMMINISTRATORE -->
+    <!-- ============================================== -->
+    <div class="tab-content active" id="dashboard">
+      
+      <!-- Stats Summary -->
+      <div class="stats-grid">
+        <div class="stat-card inviati">
+          <div class="stat-title">Invitati Totali</div>
+          <div class="stat-value" id="stat-total-guests">0</div>
+          <div class="stat-icon">👤</div>
+        </div>
+        <div class="stat-card presenti">
+          <div class="stat-title">Presenti (Check-in)</div>
+          <div class="stat-value" id="stat-checked-in">0</div>
+          <div class="stat-icon">✔️</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Tasso di Presenza</div>
+          <div class="stat-value" id="stat-attendance-rate">0%</div>
+          <div class="stat-icon" style="width: 48px; height: 48px; opacity: 1;">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path class="circle-bg"
+                style="fill: none; stroke: var(--border-color); stroke-width: 3.5;"
+                d="M18 2.0845
+                  a 15.9155 15.9155 0 0 1 0 31.831
+                  a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path class="circle"
+                id="attendance-circle-path"
+                style="fill: none; stroke: var(--success); stroke-width: 3.5; stroke-linecap: round; transition: stroke-dasharray 0.6s ease;"
+                stroke-dasharray="0, 100"
+                d="M18 2.0845
+                  a 15.9155 15.9155 0 0 1 0 31.831
+                  a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Layout Grid -->
+      <div class="main-grid">
+        
+        <!-- Left Sidebar: Form & CSV Importer -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+          <!-- Add Guest Form -->
+          <div class="card">
+            <h3 class="card-title"><i class="icon-add"></i> Nuovo Partecipante</h3>
+            <form id="add-guest-form">
+              <div class="form-group">
+                <label class="form-label" for="guest-name">Nome</label>
+                <input type="text" id="guest-name" class="form-input" placeholder="Es: Mario" required>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="guest-surname">Cognome</label>
+                <input type="text" id="guest-surname" class="form-input" placeholder="Es: Rossi" required>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="guest-email">Email</label>
+                <input type="email" id="guest-email" class="form-input" placeholder="Es: mario.rossi@email.com" required>
+              </div>
+              
+              <button type="submit" class="btn btn-primary" id="btn-add-guest">
+                Aggiungi Partecipante
+              </button>
+            </form>
+          </div>
+
+          <!-- CSV Importer -->
+          <div class="card">
+            <h3 class="card-title"><i class="icon-add"></i> Importa Partecipanti (CSV)</h3>
+            
+            <div class="csv-drop-area" id="csv-dropzone">
+              <div class="drop-icon">📁</div>
+              <div class="drop-text">Trascina qui il file .csv o clicca per sfogliare</div>
+              <input type="file" id="csv-file-input" style="display: none;" accept=".csv">
+            </div>
+            
+            <div id="csv-preview-container" style="display: none; margin-top: 1rem;">
+              <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                Partecipanti rilevati: <strong id="csv-count">0</strong>
+              </p>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-primary btn-sm" id="btn-import-csv" style="flex: 1;">
+                  Avvia Importazione
+                </button>
+                <button class="btn btn-secondary btn-sm" id="csv-cancel" style="width: auto;">
+                  Annulla
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Guest Table -->
+        <div class="card">
+          <div class="actions-row">
+            <div class="search-wrapper">
+              <i class="search-icon icon-search"></i>
+              <input type="text" id="guest-search" class="form-input search-input" placeholder="Cerca invitato per nome, cognome o email...">
+            </div>
+            
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-guests" style="width: auto;">
+              Aggiorna Tabella
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-export-guests" style="width: auto;">
+              Esporta CSV
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-send-all" style="width: auto; background-color: var(--primary); color: white;">
+              <i class="icon-send"></i> Invia a Tutti
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome Completo</th>
+                  <th>Email</th>
+                  <th>ID Biglietto</th>
+                  <th>Stato</th>
+                  <th>Azioni</th>
+                </tr>
+              </thead>
+              <tbody id="guests-table-body">
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Connection Guide Card for Staff Scanner -->
+          <div class="conn-card">
+            <div class="conn-info">
+              <h4>Accedi da Smartphone per il Check-in (Consigliato HTTPS)</h4>
+              <p>Lo staff all'ingresso può scansionare i biglietti usando la fotocamera del proprio smartphone. Assicurati che lo smartphone sia connesso al <strong>Wi-Fi locale</strong>.
+              <br><small style="color: var(--warning); display: block; margin-top: 0.25rem;">⚠️ Al primo avvio, accetta l'avviso di sicurezza del browser (clicca "Avanzate" e poi "Procedi su non sicuro") per abilitare l'uso della fotocamera.</small></p>
+              <div class="conn-ip" id="server-ip-display">Caricamento indirizzo...</div>
+            </div>
+            <div class="conn-qr">
+              <canvas id="scanner-url-qr-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 2: SIMULATORE EMAIL (MAILBOX) -->
+    <!-- ============================================== -->
+    <div class="tab-content" id="emails">
+      <div class="email-client-grid">
+        
+        <!-- Left Panel: Inbox List -->
+        <div class="email-list">
+          <div class="email-list-header">
+            <h3>Posta Inviata (Simulata)</h3>
+            <button class="btn btn-secondary btn-sm" id="btn-clear-emails" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+              <i class="icon-trash"></i> Svuota
+            </button>
+          </div>
+          <div id="email-items-container">
+            <!-- Email items generated dynamically -->
+            <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+              Nessuna email inviata al momento.
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel: Email Detail View -->
+        <div class="email-detail" id="email-detail-panel">
+          <div class="email-detail-empty" id="email-detail-empty-view">
+            <div>📬</div>
+            <p>Seleziona un'email dalla lista per visualizzarne il contenuto</p>
+          </div>
+          
+          <div class="email-detail-content" id="email-detail-content-view" style="display: none;">
+            <div class="email-detail-header">
+              <div>
+                <h2 class="email-detail-subject" id="mail-subject">Oggetto dell'email</h2>
+                <div class="email-detail-info">A: <span id="mail-to">destinatario@email.com</span></div>
+                <div class="email-detail-info" style="margin-top: 0.5rem; font-size: 0.8rem;">
+                  Invio SMTP Reale: <strong id="mail-smtp-status" style="color: var(--text-primary);">N/D</strong>
+                  <span id="mail-smtp-error" style="display: block; color: var(--error); font-size: 0.75rem; margin-top: 0.15rem; font-family: var(--font-mono);"></span>
+                </div>
+              </div>
+              <div class="email-detail-info" style="text-align: right;">
+                <div id="mail-date">Oggi, 12:00</div>
+                <!-- Shortcut to test scanning this exact email instantly in simulator modal -->
+                <button class="sim-checkin-btn" id="btn-simulate-scan-shortcut">
+                  <i class="icon-sim"></i> Simula Check-in
+                </button>
+              </div>
+            </div>
+            
+            <div class="email-detail-body">
+              <!-- Rendered preview of the HTML email -->
+              <div class="mock-email-container">
+                <div class="mock-email-header">📧 Dettagli Biglietto Elettronico</div>
+                
+                <div class="mock-email-body-content">
+                  <p id="mail-body-greeting" style="font-size: 14px; margin-bottom: 8px; font-weight: 600;">Ciao Mario Rossi,</p>
+                  <p style="font-size: 13px; color: #4b5563; line-height: 1.5; margin-bottom: 20px;">ecco il pass ufficiale d'ingresso digitale per il tuo evento. Mostra il QR Code sul tuo smartphone al personale per completare la registrazione all'ingresso.</p>
+                  
+                  <!-- Premium Ticket Card -->
+                  <div class="mock-ticket-card">
+                    <!-- Ticket Header -->
+                    <div class="mock-ticket-header">
+                      <span class="mock-ticket-logo">🎟️</span>
+                      <div class="mock-ticket-title-section">
+                        <h4 class="mock-ticket-event-title" id="mail-header-title">Nome Evento</h4>
+                        <span class="mock-ticket-badge">Biglietto Digitale</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Ticket Info -->
+                    <div class="mock-ticket-info">
+                      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px;">
+                        <tr>
+                          <td style="width: 55%; padding-bottom: 12px; vertical-align: top;">
+                            <div class="ticket-label">PARTECIPANTE</div>
+                            <div class="ticket-value" id="mail-body-fullname">Mario Rossi</div>
+                          </td>
+                          <td style="width: 45%; text-align: right; vertical-align: top; padding-bottom: 12px;">
+                            <div class="ticket-label">TICKET ID</div>
+                            <div class="ticket-value ticket-accent" id="mail-body-ticketid">evt-001</div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="vertical-align: top; padding-top: 4px;">
+                            <div class="ticket-label">📅 DATA & ORA</div>
+                            <div class="ticket-value" style="line-height: 1.3;">
+                              <span id="mail-preview-date">01/01/2026</span><br>
+                              <span style="font-size: 10px; opacity: 0.85;">Ore <span id="mail-preview-time">20:00</span></span>
+                            </div>
+                          </td>
+                          <td style="text-align: right; vertical-align: top; padding-top: 4px;">
+                            <div class="ticket-label">📍 LUOGO</div>
+                            <div class="ticket-value" id="mail-preview-location">Roma</div>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                    
+                    <!-- Perforated Divider -->
+                    <div class="mock-ticket-divider">
+                      <div class="mock-ticket-circle-left"></div>
+                      <div class="mock-ticket-circle-right"></div>
+                      <div class="mock-ticket-dashed-line"></div>
+                    </div>
+                    
+                    <!-- Ticket QR Section -->
+                    <div class="mock-ticket-qr-section">
+                      <div class="mock-ticket-qr-container">
+                        <img src="" alt="QR Code" class="mock-ticket-qr" id="mail-body-qr-img">
+                        <div class="mock-ticket-scan-text">MOSTRA AL CHECK-IN</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Info Footer Notice -->
+                  <div class="mock-email-info-box">
+                    <p>
+                      💡 Il biglietto è valido per un solo ingresso. All'arrivo, il codice verrà scansionato per convalidare l'accesso in tempo reale.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- TAB 3: IMPOSTAZIONI (SMTP & EVENTO) -->
+    <!-- ============================================== -->
+    <div class="tab-content" id="settings">
+      <div class="settings-grid">
+        
+        <!-- SMTP Settings Card -->
+        <div class="card">
+          <h3 class="card-title"><i class="icon-settings"></i> Configurazione Server SMTP</h3>
+          
+          <form id="smtp-settings-form">
+            <div class="toggle-switch">
+              <label class="switch">
+                <input type="checkbox" id="smtp-enabled">
+                <span class="slider"></span>
+              </label>
+              <span class="form-label" style="margin-bottom: 0;">Abilita Invio Email Reali (SMTP)</span>
+            </div>
+
+            <div id="smtp-fields" style="opacity: 0.5; pointer-events: none; transition: var(--transition);">
+              <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                  <label class="form-label" for="smtp-host">Server SMTP / Host</label>
+                  <input type="text" id="smtp-host" class="form-input" placeholder="es: smtp.gmail.com">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="smtp-port">Porta</label>
+                  <input type="number" id="smtp-port" class="form-input" placeholder="465">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="smtp-user">Username / Email Mittente</label>
+                <input type="text" id="smtp-user" class="form-input" placeholder="es: utente@gmail.com">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="smtp-pass">Password / Password per App</label>
+                <input type="password" id="smtp-pass" class="form-input" placeholder="••••••••••••••••">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Per Gmail, usa una "Password per l'App" generata nel tuo account Google, non la tua password principale.
+                </p>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
+              Salva Impostazioni SMTP
+            </button>
+          </form>
+        </div>
+
+        <!-- Event Customization Card -->
+        <div class="card">
+          <h3 class="card-title"><i class="icon-settings"></i> Personalizzazione Evento</h3>
+          
+          <form id="event-settings-form">
+            <div class="form-group">
+              <label class="form-label" for="event-title">Nome dell'Evento</label>
+              <input type="text" id="event-title" class="form-input" placeholder="Es: Smile Event 2026" required>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label" for="event-date">Data</label>
+                <input type="date" id="event-date" class="form-input" required>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="event-time">Ora di Inizio</label>
+                <input type="time" id="event-time" class="form-input" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="event-location">Luogo / Location</label>
+              <input type="text" id="event-location" class="form-input" placeholder="Es: Via Roma 123, Milano" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
+              Salva Dettagli Evento
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODALE SIMULAZIONE CHECK-IN (ACCESSO RAPIDO) -->
+  <!-- ============================================== -->
+  <div id="checkin-result-modal" class="result-overlay">
+    <div class="result-overlay-icon" id="modal-icon">✔️</div>
+    <h2 class="result-overlay-title" id="modal-title">ACCESSO CONSENTITO</h2>
+    <p class="result-overlay-desc" id="modal-desc">Benvenuto Mario Rossi</p>
+    <button class="result-overlay-close" onclick="closeCheckinModal()">Chiudi</button>
+  </div>
+
+  <!-- Client-side SPA Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>
