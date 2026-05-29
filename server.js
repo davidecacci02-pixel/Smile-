@@ -392,15 +392,18 @@ async function initDatabase() {
 // 1. Get system info (IP and Ports for dashboard scanner setup)
 app.get('/api/system-info', (req, res) => {
   const ip = getLocalIpAddress();
+  // Su Render, usa l'URL pubblico automatico (RENDER_EXTERNAL_URL)
+  const publicBase = process.env.RENDER_EXTERNAL_URL || null;
   res.json({
     ipAddress: ip,
     port: PORT,
     httpsPort: HTTPS_PORT,
     sslActive: fs.existsSync(KEY_FILE) && fs.existsSync(CERT_FILE),
-    scannerUrl: `http://${ip}:${PORT}/scanner.html`,
-    scannerSecureUrl: `https://${ip}:${HTTPS_PORT}/scanner.html`
+    scannerUrl: publicBase ? `${publicBase}/scanner.html` : `http://${ip}:${PORT}/scanner.html`,
+    scannerSecureUrl: publicBase ? `${publicBase}/scanner.html` : `https://${ip}:${HTTPS_PORT}/scanner.html`
   });
 });
+
 
 // 2. Get list of participants
 app.get('/api/participants', (req, res) => {
