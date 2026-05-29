@@ -570,6 +570,36 @@ app.get('/api/emails', (req, res) => {
   res.json(simulatedEmails);
 });
 
+// 10b. TEST SMTP - invia email di prova e mostra risultato dettagliato
+app.get('/api/test-email', async (req, res) => {
+  const testTo = req.query.to || smtpConfig.user;
+  try {
+    if (!smtpConfig.enabled || !smtpConfig.user || !smtpConfig.pass) {
+      return res.json({
+        success: false,
+        error: 'SMTP non configurato o disattivato',
+        smtpConfig: { host: smtpConfig.host, port: smtpConfig.port, user: smtpConfig.user, enabled: smtpConfig.enabled }
+      });
+    }
+    const transporter = require('nodemailer').createTransport({
+      host: smtpConfig.host,
+      port: parseInt(smtpConfig.port),
+      secure: smtpConfig.port === '465' || smtpConfig.port === 465,
+      auth: { user: smtpConfig.user, pass: smtpConfig.pass }
+    });
+    await transporter.verify();
+    await transporter.sendMail({
+      from: `"Smile Test" <${smtpConfig.user}>`,
+      to: testTo,
+      subject: '✅ Test Email - Smile Funziona!',
+      html: '<h2>✅ Connessione SMTP funzionante!</h2><p>Il sistema email di Smile è configurato correttamente.</p>'
+    });
+    res.json({ success: true, message: `Email di test inviata a ${testTo}`, smtpUser: smtpConfig.user });
+  } catch (error) {
+    res.json({ success: false, error: error.message, code: error.code, smtpUser: smtpConfig.user });
+  }
+});
+
 // 11. Clear simulated email list
 app.delete('/api/emails', (req, res) => {
   simulatedEmails = [];
