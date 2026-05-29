@@ -7,6 +7,10 @@ const https = require('https');
 const { execSync } = require('child_process');
 const QRCode = require('qrcode');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+
+// Resend client (usato su Render - non bloccato)
+const resendClient = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -164,12 +168,18 @@ function sendSimulatedEmail(participant) {
 // Helper: Send real email using SMTP with premium Apple Wallet design
 async function sendRealEmail(emailObj, participant) {
   try {
+    // Se su Render, usa Resend API (HTTP - mai bloccato)
+    if (resendClient) {
+      await sendViaResend(emailObj, participant);
+      return;
+    }
+    // Fallback: nodemailer SMTP (per sviluppo locale)
     const port = parseInt(smtpConfig.port) || 587;
     const transporter = nodemailer.createTransport({
       host: smtpConfig.host,
       port: port,
-      secure: port === 465,        // SSL solo per porta 465
-      requireTLS: port === 587,    // STARTTLS per porta 587 (funziona su Render)
+      secure: port === 465,
+      requireTLS: port === 587,
       auth: {
         user: smtpConfig.user,
         pass: smtpConfig.pass
@@ -299,6 +309,62 @@ async function sendRealEmail(emailObj, participant) {
       foundEmail.smtpError = error.message;
     }
   }
+}
+
+// Helper: Invia email tramite Resend API (usato su Render)
+async function sendViaResend(emailObj, participant) {
+  const fromAddress = process.env.RESEND_FROM || 'onboarding@resend.dev';
+  const htmlContent = buildEmailHtml(participant);
+  const { error } = await resendClient.emails.send({
+    from: fromAddress,
+    to: emailObj.to,
+    subject: emailObj.subject,
+    html: htmlContent,
+    attachments: [
+      {
+        filename: 'qrcode.png',
+        content: participant.qrCode.split(',')[1]
+      }
+    ]
+  });
+  const found = simulatedEmails.find(e => e.id === emailObj.id);
+  if (error) {
+    console.error('Errore Resend:', error);
+    if (found) { found.smtpStatus = 'Errore di invio'; found.smtpError = error.message; }
+    throw new Error(error.message);
+  }
+  if (found) found.smtpStatus = 'Inviata con successo';
+}
+
+// Helper: costruisce l'HTML dell'email biglietto
+function buildEmailHtml(participant) {
+  return `
+    <div style="background-color:#f1f5f9;padding:30px 15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;text-align:center">
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:460px;margin:0 auto;text-align:left;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.05);border:1px solid #e2e8f0">
+        <tr><td style="padding:24px">
+          <p style="font-size:14px;color:#4b5563;margin:0 0 6px;font-weight:600">Ciao ${participant.name} ${participant.surname},</p>
+          <p style="font-size:13px;color:#64748b;line-height:1.5;margin:0 0 20px">ecco il tuo pass ufficiale d'ingresso per l'evento.</p>
+          <table cellpadding="0" cellspacing="0" border="0" style="width:100%;background:linear-gradient(145deg,#0b0f19 0%,#030712 100%);border-radius:16px;overflow:hidden;border:1px solid #1e293b">
+            <tr><td style="padding:20px">
+              <div style="font-size:15px;font-weight:800;color:#ffffff">${eventConfig.title}</div>
+              <div style="font-size:8px;font-weight:700;color:#c084fc;margin-top:4px">BIGLIETTO DIGITALE</div>
+            </td></tr>
+            <tr><td style="padding:0 20px 20px">
+              <div style="color:#94a3b8;font-size:9px;font-weight:bold;margin-bottom:3px">PARTECIPANTE</div>
+              <div style="color:#ffffff;font-size:14px;font-weight:bold">${participant.name} ${participant.surname}</div>
+              <div style="color:#94a3b8;font-size:9px;font-weight:bold;margin:10px 0 3px">DATA &amp; ORA</div>
+              <div style="color:#ffffff;font-size:13px;font-weight:bold">${formatDateIt(eventConfig.date)} — Ore ${eventConfig.time}</div>
+              <div style="color:#94a3b8;font-size:9px;font-weight:bold;margin:10px 0 3px">LUOGO</div>
+              <div style="color:#ffffff;font-size:13px;font-weight:bold">${eventConfig.location}</div>
+            </td></tr>
+            <tr><td style="padding:10px 20px 24px;text-align:center">
+              <img src="${participant.qrCode}" alt="QR Code" style="width:140px;height:140px;background:#fff;padding:10px;border-radius:12px;display:block;margin:0 auto">
+              <div style="color:#64748b;font-size:8px;font-weight:bold;margin-top:8px;letter-spacing:1px">MOSTRA AL CHECK-IN</div>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </div>`;
 }
 
 // Database Initialization helper (creates initial test guest list with QR codes)
