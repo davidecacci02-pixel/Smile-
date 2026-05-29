@@ -349,10 +349,16 @@ async function sendViaBrevo(emailObj, participant) {
           if (found) found.smtpStatus = 'Inviata con successo';
           resolve();
         } else {
-          const errMsg = JSON.parse(data)?.message || `Errore Brevo (${res.statusCode})`;
-          console.error('Errore Brevo:', errMsg);
-          if (found) { found.smtpStatus = 'Errore di invio'; found.smtpError = errMsg; }
-          reject(new Error(errMsg));
+          let errMsg = `Errore Brevo (${res.statusCode})`;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed && parsed.message) errMsg = parsed.message;
+            if (parsed && parsed.code) errMsg += ` [Code: ${parsed.code}]`;
+          } catch (e) {}
+          const detailedError = `${errMsg} (Sender: ${senderEmail})`;
+          console.error('Errore Brevo:', detailedError, 'Payload sent:', payload);
+          if (found) { found.smtpStatus = 'Errore di invio'; found.smtpError = detailedError; }
+          reject(new Error(detailedError));
         }
       });
     });
