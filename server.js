@@ -7,10 +7,9 @@ const https = require('https');
 const { execSync } = require('child_process');
 const QRCode = require('qrcode');
 const nodemailer = require('nodemailer');
-const { Resend } = require('resend');
 
-// Resend client (usato su Render - non bloccato)
-const resendClient = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// Brevo (ex Sendinblue) API key - usa HTTP, non bloccato da Render, nessun dominio richiesto
+const brevoApiKey = process.env.BREVO_API_KEY || null;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -165,15 +164,15 @@ function sendSimulatedEmail(participant) {
   return emailObj;
 }
 
-// Helper: Send real email using SMTP with premium Apple Wallet design
+// Helper: Send real email
 async function sendRealEmail(emailObj, participant) {
   try {
-    // Se su Render, usa Resend API (HTTP - mai bloccato)
-    if (resendClient) {
-      await sendViaResend(emailObj, participant);
+    // Priorità 1: Brevo API (HTTP, mai bloccato, nessun dominio richiesto)
+    if (brevoApiKey) {
+      await sendViaBrevo(emailObj, participant);
       return;
     }
-    // Fallback: nodemailer SMTP (per sviluppo locale)
+    // Priorità 2: nodemailer SMTP (sviluppo locale)
     const port = parseInt(smtpConfig.port) || 587;
     const transporter = nodemailer.createTransport({
       host: smtpConfig.host,
@@ -311,29 +310,60 @@ async function sendRealEmail(emailObj, participant) {
   }
 }
 
-// Helper: Invia email tramite Resend API (usato su Render)
-async function sendViaResend(emailObj, participant) {
-  const fromAddress = process.env.RESEND_FROM || 'onboarding@resend.dev';
+// Helper: Invia email tramite Brevo API (HTTP - mai bloccato da Render, nessun dominio richiesto)
+async function sendViaBrevo(emailObj, participant) {
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || smtpConfig.user || 'noreply@smile-eventi.com';
+  const senderName = process.env.BREVO_SENDER_NAME || 'Smile Eventi';
   const htmlContent = buildEmailHtml(participant);
-  const { error } = await resendClient.emails.send({
-    from: fromAddress,
-    to: emailObj.to,
+
+  const payload = JSON.stringify({
+    sender: { name: senderName, email: senderEmail },
+    to: [{ email: emailObj.to }],
     subject: emailObj.subject,
-    html: htmlContent,
-    attachments: [
-      {
-        filename: 'qrcode.png',
-        content: participant.qrCode.split(',')[1]
-      }
-    ]
+    htmlContent: htmlContent,
+    attachment: [{
+      content: participant.qrCode.split(',')[1],
+      name: 'biglietto-qr.png'
+    }]
   });
-  const found = simulatedEmails.find(e => e.id === emailObj.id);
-  if (error) {
-    console.error('Errore Resend:', error);
-    if (found) { found.smtpStatus = 'Errore di invio'; found.smtpError = error.message; }
-    throw new Error(error.message);
-  }
-  if (found) found.smtpStatus = 'Inviata con successo';
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': brevoApiKey,
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload)
+      }
+    };
+
+    const req = require('https').request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        const found = simulatedEmails.find(e => e.id === emailObj.id);
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          if (found) found.smtpStatus = 'Inviata con successo';
+          resolve();
+        } else {
+          const errMsg = JSON.parse(data)?.message || `Errore Brevo (${res.statusCode})`;
+          console.error('Errore Brevo:', errMsg);
+          if (found) { found.smtpStatus = 'Errore di invio'; found.smtpError = errMsg; }
+          reject(new Error(errMsg));
+        }
+      });
+    });
+
+    req.on('error', (e) => {
+      console.error('Errore connessione Brevo:', e);
+      reject(e);
+    });
+    req.write(payload);
+    req.end();
+  });
 }
 
 // Helper: costruisce l'HTML dell'email biglietto
