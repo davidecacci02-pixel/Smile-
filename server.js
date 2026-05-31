@@ -7,6 +7,7 @@ const https = require('https');
 const { execSync } = require('child_process');
 const QRCode = require('qrcode');
 const nodemailer = require('nodemailer');
+const { MongoClient } = require('mongodb');
 
 // Brevo (ex Sendinblue) API key - usa HTTP, non bloccato da Render, nessun dominio richiesto
 const brevoApiKey = process.env.BREVO_API_KEY || null;
@@ -40,40 +41,134 @@ function broadcastEvent(type, data) {
   });
 }
 
-// SMTP config: legge prima dalle variabili d'ambiente (Render), poi dal file locale
+// SMTP & Event Config values (initialized to defaults, loaded dynamically by helper)
 let smtpConfig = { enabled: false, host: '', port: '465', user: '', pass: '' };
-if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-  // Variabili d'ambiente impostate su Render (permanenti)
-  smtpConfig = {
-    enabled: true,
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || '465',
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  };
-  console.log('SMTP configurato tramite variabili d\'ambiente.');
-} else if (fs.existsSync(SETTINGS_FILE)) {
-  // Fallback: usa il file locale (sviluppo locale)
-  try {
-    smtpConfig = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
-    console.log('SMTP configurato tramite settings.json locale.');
-  } catch (e) {
-    console.error("Errore lettura settings.json:", e);
-  }
-}
-
-// Event details config: legge prima dalle variabili d'ambiente, poi dal file locale
 let eventConfig = {
   title: process.env.EVENT_TITLE || "Mio Evento Speciale",
   date: process.env.EVENT_DATE || new Date().toISOString().split('T')[0],
   time: process.env.EVENT_TIME || "20:00",
   location: process.env.EVENT_LOCATION || "Roma"
 };
-if (!process.env.EVENT_TITLE && fs.existsSync(EVENT_SETTINGS_FILE)) {
+
+function loadConfigFromFiles() {
+  // SMTP Config
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    smtpConfig = {
+      enabled: true,
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: process.env.SMTP_PORT || '465',
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    };
+    console.log('SMTP configurato tramite variabili d\'ambiente.');
+  } else if (fs.existsSync(SETTINGS_FILE)) {
+    try {
+      smtpConfig = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+      console.log('SMTP configurato tramite settings.json locale.');
+    } catch (e) {
+      console.error("Errore lettura settings.json:", e);
+    }
+  }
+
+  // Event Config
+  if (process.env.EVENT_TITLE) {
+    eventConfig = {
+      title: process.env.EVENT_TITLE,
+      date: process.env.EVENT_DATE || new Date().toISOString().split('T')[0],
+      time: process.env.EVENT_TIME || "20:00",
+      location: process.env.EVENT_LOCATION || "Roma"
+    };
+    console.log('Configurazione evento caricata da variabili d\'ambiente.');
+  } else if (fs.existsSync(EVENT_SETTINGS_FILE)) {
+    try {
+      eventConfig = JSON.parse(fs.readFileSync(EVENT_SETTINGS_FILE, 'utf8'));
+      console.log('Configurazione evento caricata da event_settings.json locale.');
+    } catch (e) {
+      console.error("Errore lettura event_settings.json:", e);
+    }
+  }
+}
+loadConfigFromFiles();
+
+// MongoDB Integration Variables
+const MONGODB_URI = process.env.MONGODB_URI || null;
+let mongoClient = null;
+let db = null;
+
+async function initMongoConnection() {
+  if (!MONGODB_URI) {
+    console.log("MONGODB_URI non definita. Il server funzionerà in modalità locale (senza persistenza cloud).");
+    return false;
+  }
   try {
-    eventConfig = JSON.parse(fs.readFileSync(EVENT_SETTINGS_FILE, 'utf8'));
-  } catch (e) {
-    console.error("Errore lettura event_settings.json:", e);
+    console.log("Connessione a MongoDB in corso...");
+    mongoClient = new MongoClient(MONGODB_URI);
+    await mongoClient.connect();
+    db = mongoClient.db();
+    console.log("Connessione a MongoDB stabilita con successo.");
+    return true;
+  } catch (error) {
+    console.error("Errore durante la connessione a MongoDB:", error.message);
+    mongoClient = null;
+    db = null;
+    return false;
+  }
+}
+
+async function syncFromDb() {
+  if (!db) return;
+  console.log("Sincronizzazione dei file da MongoDB...");
+  const filesToSync = [
+    { filename: 'database.json', localPath: DB_FILE },
+    { filename: 'settings.json', localPath: SETTINGS_FILE },
+    { filename: 'event_settings.json', localPath: EVENT_SETTINGS_FILE }
+  ];
+
+  for (const file of filesToSync) {
+    try {
+      const doc = await db.collection('files').findOne({ filename: file.filename });
+      if (doc && doc.content !== undefined) {
+        console.log(`Ripristino ${file.filename} da MongoDB...`);
+        fs.writeFileSync(file.localPath, typeof doc.content === 'string' ? doc.content : JSON.stringify(doc.content, null, 2));
+      } else {
+        console.log(`${file.filename} non trovato in MongoDB. Creazione copia iniziale nel cloud...`);
+        if (fs.existsSync(file.localPath)) {
+          let content = fs.readFileSync(file.localPath, 'utf8');
+          try {
+            content = JSON.parse(content);
+          } catch (e) {}
+          await db.collection('files').updateOne(
+            { filename: file.filename },
+            { $set: { filename: file.filename, content, updatedAt: new Date() } },
+            { upsert: true }
+          );
+        }
+      }
+    } catch (err) {
+      console.error(`Errore sincronizzazione ${file.filename}:`, err.message);
+    }
+  }
+  console.log("Sincronizzazione da MongoDB completata.");
+}
+
+function backupFileToDb(filename, localPath) {
+  if (!db) return;
+  try {
+    if (fs.existsSync(localPath)) {
+      let content = fs.readFileSync(localPath, 'utf8');
+      try {
+        content = JSON.parse(content);
+      } catch (e) {}
+      db.collection('files').updateOne(
+        { filename: filename },
+        { $set: { filename: filename, content: content, updatedAt: new Date() } },
+        { upsert: true }
+      ).catch(err => {
+        console.error(`Errore durante il backup asincrono di ${filename} su MongoDB:`, err.message);
+      });
+    }
+  } catch (err) {
+    console.error(`Errore lettura file locale per backup ${filename}:`, err.message);
   }
 }
 
@@ -108,6 +203,7 @@ function readParticipants() {
 function writeParticipants(data) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    backupFileToDb('database.json', DB_FILE);
     return true;
   } catch (error) {
     console.error("Errore scrittura database partecipanti:", error);
@@ -701,6 +797,7 @@ app.post('/api/settings/smtp', (req, res) => {
   smtpConfig = { host, port, user, pass, enabled: enabled === true };
   try {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(smtpConfig, null, 2));
+    backupFileToDb('settings.json', SETTINGS_FILE);
   } catch (e) {
     console.error("Errore salvataggio impostazioni SMTP:", e);
   }
@@ -722,6 +819,7 @@ app.post('/api/settings/event', (req, res) => {
   eventConfig = { title, date, time, location };
   try {
     fs.writeFileSync(EVENT_SETTINGS_FILE, JSON.stringify(eventConfig, null, 2));
+    backupFileToDb('event_settings.json', EVENT_SETTINGS_FILE);
     
     // Broadcast event details changes
     broadcastEvent('event_update', eventConfig);
@@ -750,6 +848,12 @@ app.get('/api/events', (req, res) => {
 
 // Start listening and initialize DB if needed
 async function startServer() {
+  const mongoConnected = await initMongoConnection();
+  if (mongoConnected) {
+    await syncFromDb();
+    loadConfigFromFiles();
+  }
+
   await loadOrInitParticipants();
 
   // Start HTTP server
