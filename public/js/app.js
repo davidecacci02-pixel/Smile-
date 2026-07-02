@@ -524,9 +524,9 @@ function selectEmail(id) {
   if (emailNote) {
     mailNotePreview.style.display = 'block';
     mailNotePreview.innerHTML = `
-      <div style="padding: 12px 14px; border-radius: 14px; background: #0f172a; border: 1px solid rgba(148,163,184,0.24); color: #e2e8f0; font-size: 13px; line-height: 1.6;">
-        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #c7d2fe; margin-bottom: 8px;">Messaggio speciale</div>
-        ${escapeHtml(emailNote)}
+      <div style="padding: 14px 16px; border-radius: 16px; background: linear-gradient(180deg, #eef2ff 0%, #f8fbff 100%); border: 1px solid rgba(99,102,241,0.24); color: #0f172a; font-size: 13px; line-height: 1.7; box-shadow: 0 1px 4px rgba(15,23,42,0.08);">
+        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #4338ca; margin-bottom: 8px;">Informazioni</div>
+        <div style="font-style: italic; color: #1f2937;">${escapeHtml(emailNote)}</div>
       </div>
     `;
   } else {
