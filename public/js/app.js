@@ -523,7 +523,12 @@ function selectEmail(id) {
   const emailNote = email.note || (participant && participant.note ? participant.note.trim() : '');
   if (emailNote) {
     mailNotePreview.style.display = 'block';
-    mailNotePreview.textContent = `Nota personalizzata: ${emailNote}`;
+    mailNotePreview.innerHTML = `
+      <div style="padding: 12px 14px; border-radius: 14px; background: #0f172a; border: 1px solid rgba(148,163,184,0.24); color: #e2e8f0; font-size: 13px; line-height: 1.6;">
+        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #c7d2fe; margin-bottom: 8px;">Messaggio speciale</div>
+        ${escapeHtml(emailNote)}
+      </div>
+    `;
   } else {
     mailNotePreview.style.display = 'none';
     mailNotePreview.textContent = '';

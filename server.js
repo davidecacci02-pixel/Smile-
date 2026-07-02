@@ -495,7 +495,10 @@ function escapeHtml(value) {
 
 function buildEmailHtml(participant, qrCodeSrc) {
   const noteBlock = participant && participant.note && participant.note.trim()
-    ? `<div style="margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-size: 12px; line-height: 1.5;"><strong style="display:block; margin-bottom:4px; color:#0f172a;">Nota personalizzata</strong>${escapeHtml(participant.note.trim())}</div>`
+    ? `<div style="margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; line-height: 1.65; box-shadow: inset 0 0 0 1px rgba(99,102,241,0.08);">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #4338ca; margin-bottom: 8px;">Messaggio speciale</div>
+          <div style="color: #334155;">${escapeHtml(participant.note.trim())}</div>
+        </div>`
     : '';
 
   return `
