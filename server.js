@@ -138,7 +138,8 @@ async function initMongoConnection() {
 
     if (process.env.MONGO_TLS_INSECURE === 'true') {
       mongoOptions.tlsInsecure = true;
-      mongoOptions.tlsAllowInvalidHostnames = true;
+      // tlsInsecure already disables strict certificate validation and hostname checks.
+      // Avoid setting tlsAllowInvalidHostnames together with tlsInsecure to prevent driver errors.
     }
 
     mongoClient = new MongoClient(MONGODB_URI, mongoOptions);
