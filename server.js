@@ -137,9 +137,8 @@ async function initMongoConnection() {
     };
 
     if (process.env.MONGO_TLS_INSECURE === 'true') {
-      mongoOptions.tlsAllowInvalidCertificates = true;
-      mongoOptions.tlsAllowInvalidHostnames = true;
       mongoOptions.tlsInsecure = true;
+      mongoOptions.tlsAllowInvalidHostnames = true;
     }
 
     mongoClient = new MongoClient(MONGODB_URI, mongoOptions);
