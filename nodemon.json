@@ -1,0 +1,9 @@
+{
+  "ignore": [
+    "database.json",
+    "settings.json",
+    "event_settings.json",
+    "*.pem",
+    "node_modules"
+  ]
+}

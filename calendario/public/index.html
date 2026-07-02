@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smile Calendario 2026 - Gestione Appuntamenti</title>
+  <!-- Google Fonts: Outfit & Inter for premium appearance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- SheetJS client-side Excel library -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- Loading Spinner Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner-container">
+      <div class="spinner"></div>
+      <p>Sincronizzazione con Excel in corso...</p>
+    </div>
+  </div>
+
+  <!-- Branded Branded Layout Container -->
+  <div class="app-container">
+    
+    <!-- Sidebar Panel -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <img src="logo.png" alt="Smile Logo" class="sidebar-logo">
+        <div class="logo-text">
+          <h1>Smile</h1>
+          <p>Calendario 2026</p>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <h2 class="nav-title">Viste Calendario</h2>
+        
+        <button class="nav-btn active" data-view="tutti" id="btnViewAll">
+          <span class="nav-icon">🗓️</span>
+          <span class="nav-label">Calendario Generale</span>
+        </button>
+
+        <div class="category-wrapper">
+          <button class="nav-btn" data-view="miky" id="btnViewMiky">
+            <span class="nav-icon color-miky">👤</span>
+            <span class="nav-label">Impegni Miky</span>
+          </button>
+          <div class="agent-dropdown" id="dropdownMiky" style="display: none;">
+            <label for="selectMikyAgent">Agente Commerciale:</label>
+            <select id="selectMikyAgent" class="sidebar-select">
+              <option value="tutti">Tutti gli agenti</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="category-wrapper">
+          <button class="nav-btn" data-view="ermelinda" id="btnViewErmelinda">
+            <span class="nav-icon color-ermelinda">👤</span>
+            <span class="nav-label">Impegni Ermelinda</span>
+          </button>
+          <div class="agent-dropdown" id="dropdownErmelinda" style="display: none;">
+            <label for="selectErmelindaAgent">Agente Commerciale:</label>
+            <select id="selectErmelindaAgent" class="sidebar-select">
+              <option value="tutti">Tutti gli agenti</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="category-wrapper">
+          <button class="nav-btn" data-view="guglielmo" id="btnViewGuglielmo">
+            <span class="nav-icon color-guglielmo">👤</span>
+            <span class="nav-label">Impegni Guglielmo</span>
+          </button>
+          <div class="agent-dropdown" id="dropdownGuglielmo" style="display: none;">
+            <label for="selectGuglielmoAgent">Agente Commerciale:</label>
+            <select id="selectGuglielmoAgent" class="sidebar-select">
+              <option value="tutti">Tutti gli agenti</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="nav-btn" data-view="academy" id="btnViewAcademy">
+          <span class="nav-icon color-academy">🎓</span>
+          <span class="nav-label">Academy (Formazione)</span>
+        </button>
+
+        <button class="nav-btn" data-view="riunioni" id="btnViewMeetings">
+          <span class="nav-icon color-riunioni">💼</span>
+          <span class="nav-label">Riunioni Commerciali</span>
+        </button>
+      </nav>
+
+      <!-- Connection Status Card -->
+      <div class="status-card">
+        <div class="status-indicator">
+          <span class="status-dot online" id="statusDot"></span>
+          <span class="status-text" id="statusText">Excel Connesso</span>
+        </div>
+        <p class="status-desc" id="statusDesc">I dati vengono letti e salvati direttamente in CALENDARIO AFFIANCAMENTI 2026.xls</p>
+      </div>
+
+      <!-- Import Section -->
+      <div class="import-card">
+        <button class="btn-import" id="btnTriggerImport">
+          <span class="import-icon">📥</span>
+          <span class="import-label">Importa File Excel</span>
+        </button>
+        <input type="file" id="excelFileInput" accept=".xls,.xlsx" style="display: none;">
+        <div class="import-actions">
+          <span class="import-link" id="btnResetImport">Ripristina originale</span>
+          <span class="import-link danger" id="btnClearDatabase">Svuota tutto</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Top Control Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <h2 id="currentPeriodTitle" class="current-period-title">Gennaio 2026</h2>
+          <p id="currentFilterLabel" class="current-filter-label">Visualizzazione: Calendario Generale</p>
+        </div>
+        
+        <div class="header-right">
+          <!-- Search box -->
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchBar" placeholder="Cerca impegni...">
+          </div>
+          <!-- Print PDF Button -->
+          <button id="btnPrint" class="btn-print">
+            <span>🖨️ Stampa PDF</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Calendar Controls Panel -->
+      <section class="controls-panel">
+        <div class="controls-left">
+          <button id="btnPrevMonth" class="btn-nav">◀ Mese Prec.</button>
+          
+          <select id="selectMonth" class="month-selector">
+            <option value="1">Gennaio</option>
+            <option value="2">Febbraio</option>
+            <option value="3">Marzo</option>
+            <option value="4">Aprile</option>
+            <option value="5">Maggio</option>
+            <option value="6">Giugno</option>
+            <option value="7">Luglio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Settembre</option>
+            <option value="10">Ottobre</option>
+            <option value="11">Novembre</option>
+            <option value="12">Dicembre</option>
+          </select>
+          
+          <button id="btnNextMonth" class="btn-nav">Mese Succ. ▶</button>
+          <button id="btnCurrentMonth" class="btn-nav btn-today">Oggi 🗓️</button>
+        </div>
+
+        <div class="controls-right">
+          <!-- Compare month option -->
+          <label class="compare-switch">
+            <input type="checkbox" id="chkCompare">
+            <span class="switch-slider"></span>
+            <span class="switch-label">Confronta Mesi</span>
+          </label>
+
+          <!-- Compare month selectors (visible only when compare mode is checked) -->
+          <div class="compare-selects" id="compareSelectsWrapper" style="display: none;">
+            <select id="selectCompareA" class="month-selector-sm"></select>
+            <span>vs</span>
+            <select id="selectCompareB" class="month-selector-sm"></select>
+          </div>
+
+          <!-- View toggle buttons -->
+          <div class="view-toggle">
+            <button class="toggle-btn active" data-layout="month" id="btnLayoutMonth">Mese</button>
+            <button class="toggle-btn" data-layout="week" id="btnLayoutWeek">Settimana</button>
+            <button class="toggle-btn" data-layout="list" id="btnLayoutList">Lista</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Printable Document Header (hidden in screen, visible in print) -->
+      <div class="print-only-header">
+        <h1>SMILE - CALENDARIO AFFIANCAMENTI 2026</h1>
+        <h2 id="printSubHeader">Gennaio 2026</h2>
+      </div>
+
+      <!-- Main Visual Display Container -->
+      <div class="display-container">
+        
+        <!-- Single Layout Grid Container -->
+        <div id="singleLayoutContainer" class="layout-wrapper active">
+          <!-- Calendar Days of Week Header -->
+          <div class="calendar-headers" id="calendarHeaders">
+            <div>Lunedì</div>
+            <div>Martedì</div>
+            <div>Mercoledì</div>
+            <div>Giovedì</div>
+            <div>Venerdì</div>
+            <div>Sabato</div>
+            <div>Domenica</div>
+          </div>
+          <!-- Grid for days of the month -->
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <!-- Compare Layout Container (Day-by-Day Comparative Table) -->
+        <div id="compareLayoutContainer" class="layout-wrapper compare-layout-table">
+          <div class="compare-table-header">
+            <div class="compare-hdr-day">Giorno</div>
+            <div class="compare-hdr-month-a" id="compareMonthTitleA">Mese A 2026</div>
+            <div class="compare-hdr-month-b" id="compareMonthTitleB">Mese B 2026</div>
+          </div>
+          <div class="compare-table-body" id="compareTableBody">
+            <!-- Dynamically populated rows in app.js -->
+          </div>
+        </div>
+
+        <!-- Chronological List View Container -->
+        <div id="listViewContainer" class="layout-wrapper list-layout">
+          <div class="list-headers">
+            <div class="col-date">Data</div>
+            <div class="col-day">Giorno</div>
+            <div class="col-event">Impegni e Affiancamenti</div>
+          </div>
+          <div class="list-events" id="listEvents"></div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Event Dialog Modal (Add/Edit) -->
+  <div id="eventModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Aggiungi Impegno</h3>
+        <button class="close-btn" id="btnCancelModal">&times;</button>
+      </div>
+      <form id="eventForm">
+        <!-- Date field -->
+        <div class="form-group">
+          <label for="eventDate">Data Impegno</label>
+          <input type="date" id="eventDate" required readonly>
+        </div>
+
+        <!-- Category Selector -->
+        <div class="form-group">
+          <label for="eventCategory">Chi fa l'impegno? (Categoria)</label>
+          <select id="eventCategory" required>
+            <option value="miky">Miky (Affiancamento)</option>
+            <option value="ermelinda">Ermelinda (Affiancamento)</option>
+            <option value="guglielmo">Guglielmo (Affiancamento)</option>
+            <option value="academy">Academy (Formazione / Corsi)</option>
+            <option value="riunioni">Riunione Commerciale</option>
+            <option value="other">Altro / Festività / Vacanze</option>
+          </select>
+        </div>
+
+        <!-- Agent selector (conditionally visible for boss categories) -->
+        <div class="form-group" id="agentSelectorGroup">
+          <label for="eventAgent">Agente commercial affiancato</label>
+          <select id="eventAgent">
+            <option value="">Nessuno / Seleziona...</option>
+            <!-- Predefined agents inserted dynamically -->
+            <option value="custom">Aggiungi agente personalizzato...</option>
+          </select>
+          <input type="text" id="eventAgentCustom" class="custom-input" placeholder="Scrivi nome agente..." style="display: none;">
+        </div>
+
+        <!-- Event Text Input -->
+        <div class="form-group">
+          <label for="eventText">Testo salvato in Excel</label>
+          <input type="text" id="eventText" placeholder="Es. MIKY ANDREA" required readonly>
+          <label class="manual-text-toggle" for="eventManualText">
+            <input type="checkbox" id="eventManualText"> Modifica testo manualmente
+          </label>
+          <p class="helper-text">Di default il testo è generato automaticamente. Attiva il checkbox per scriverne uno personalizzato.</p>
+        </div>
+
+        <!-- Error Message container (if open/locked) -->
+        <div id="modalError" class="modal-error" style="display: none;">
+          <strong>Attenzione:</strong> <span id="modalErrorText"></span>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="modal-footer">
+          <button type="button" id="btnDeleteEvent" class="btn-delete" style="display: none;">🗑️ Elimina questo impegno</button>
+          <div class="modal-footer-right">
+            <button type="button" id="btnDiscardEvent" class="btn-cancel">Annulla</button>
+            <button type="submit" id="btnSaveEvent" class="btn-submit">Salva Impegno</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Import Options Modal -->
+  <div id="importModal" class="modal">
+    <div class="modal-content" style="width: 420px;">
+      <div class="modal-header">
+        <h3>Opzioni Importazione</h3>
+        <button class="close-btn" id="btnCancelImportModal">&times;</button>
+      </div>
+      <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <p style="font-size: 13px; line-height: 1.5; color: var(--text-main); margin-bottom: 4px;">
+          Rilevati <strong id="importCountText">0</strong> impegni nel file Excel selezionato. Scegli come desideri caricarli nel calendario:
+        </p>
+        
+        <button id="btnImportReplace" style="width: 100%; padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background-color: var(--primary-light); color: var(--primary); font-weight: 700; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; outline: none; transition: transform var(--transition-speed), border-color var(--transition-speed);">
+          <span style="font-size: 14px;">🔄 Sostituisci il calendario corrente</span>
+          <span style="font-size: 11px; font-weight: 400; color: var(--text-muted); line-height: 1.3;">Cancella tutti gli impegni attuali e usa solo quelli del nuovo file.</span>
+        </button>
+        
+        <button id="btnImportAppend" style="width: 100%; padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background-color: white; color: var(--text-main); font-weight: 700; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; outline: none; transition: transform var(--transition-speed), background-color var(--transition-speed);">
+          <span style="font-size: 14px;">➕ Unisci al calendario esistente</span>
+          <span style="font-size: 11px; font-weight: 400; color: var(--text-muted); line-height: 1.3;">Aggiungi i nuovi impegni a quelli esistenti, evitando di creare duplicati dello stesso giorno.</span>
+        </button>
+      </div>
+      <div class="modal-footer" style="background-color: #f8fafc; padding: 12px 20px; display: flex; justify-content: flex-end;">
+        <button type="button" class="btn-cancel" id="btnDiscardImportModal">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

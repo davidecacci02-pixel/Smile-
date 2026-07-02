@@ -104,6 +104,11 @@
                 <label class="form-label" for="guest-email">Email</label>
                 <input type="email" id="guest-email" class="form-input" placeholder="Es: mario.rossi@email.com" required>
               </div>
+
+              <div class="form-group">
+                <label class="form-label" for="guest-note">Nota personalizzata</label>
+                <textarea id="guest-note" class="form-input" rows="3" placeholder="Es: Porta il documento d'identità all'ingresso"></textarea>
+              </div>
               
               <button type="submit" class="btn btn-primary" id="btn-add-guest">
                 Aggiungi Partecipante
@@ -162,6 +167,7 @@
                 <tr>
                   <th>Nome Completo</th>
                   <th>Email</th>
+                  <th>Nota</th>
                   <th>ID Biglietto</th>
                   <th>Stato</th>
                   <th>Azioni</th>
@@ -245,7 +251,7 @@
                 <div class="mock-email-body-content">
                   <p id="mail-body-greeting" style="font-size: 14px; margin-bottom: 8px; font-weight: 600;">Ciao Mario Rossi,</p>
                   <p style="font-size: 13px; color: #4b5563; line-height: 1.5; margin-bottom: 20px;">ecco il pass ufficiale d'ingresso digitale per il tuo evento. Mostra il QR Code sul tuo smartphone al personale per completare la registrazione all'ingresso.</p>
-                  
+                    <div id="mail-note-preview" style="display:none; margin-bottom: 16px; padding: 10px 12px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-size: 12px; line-height: 1.5;"></div>
                   <!-- Premium Ticket Card -->
                   <div class="mock-ticket-card">
                     <!-- Ticket Header -->

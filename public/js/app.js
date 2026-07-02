@@ -15,6 +15,7 @@ const addGuestForm = document.getElementById('add-guest-form');
 const guestNameInput = document.getElementById('guest-name');
 const guestSurnameInput = document.getElementById('guest-surname');
 const guestEmailInput = document.getElementById('guest-email');
+const guestNoteInput = document.getElementById('guest-note');
 const guestSearchInput = document.getElementById('guest-search');
 const btnRefreshGuests = document.getElementById('btn-refresh-guests');
 const btnExportGuests = document.getElementById('btn-export-guests');
@@ -48,6 +49,7 @@ const mailBodyGreeting = document.getElementById('mail-body-greeting');
 const mailBodyFullname = document.getElementById('mail-body-fullname');
 const mailBodyTicketid = document.getElementById('mail-body-ticketid');
 const mailBodyQrImg = document.getElementById('mail-body-qr-img');
+const mailNotePreview = document.getElementById('mail-note-preview');
 const btnSimulateScanShortcut = document.getElementById('btn-simulate-scan-shortcut');
 const btnClearEmails = document.getElementById('btn-clear-emails');
 const unreadEmailBadge = document.getElementById('unread-email-badge');
@@ -198,6 +200,7 @@ function renderParticipantsTable(list) {
     tr.innerHTML = `
       <td style="font-weight: 600;">${escapeHtml(p.name)} ${escapeHtml(p.surname)}</td>
       <td>${escapeHtml(p.email)}</td>
+      <td>${escapeHtml(p.note || '')}</td>
       <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-secondary);">${escapeHtml(p.id)}</td>
       <td>
         <span class="badge ${statusClass}">${p.status}</span>
@@ -267,6 +270,7 @@ async function handleAddGuest(e) {
   const name = guestNameInput.value.trim();
   const surname = guestSurnameInput.value.trim();
   const email = guestEmailInput.value.trim();
+  const note = guestNoteInput.value.trim();
 
   if (!name || !surname || !email) return;
 
@@ -278,7 +282,7 @@ async function handleAddGuest(e) {
     const response = await fetch('/api/participants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, surname, email })
+      body: JSON.stringify({ name, surname, email, note })
     });
 
     if (!response.ok) {
@@ -312,8 +316,12 @@ async function handleSendSingleQr(id, buttonElement) {
   buttonElement.innerHTML = `<span class="spinner"></span> Invio...`;
 
   try {
+    const note = window.prompt('Aggiungi una nota personalizzata da includere nel biglietto (facoltativa):', '');
+    const payload = note === null ? {} : { note: note };
     const response = await fetch(`/api/participants/${id}/send-email`, {
-      method: 'POST'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -366,8 +374,11 @@ async function handleSendAll() {
   btnSendAll.innerHTML = `<span class="spinner"></span> Invio di gruppo...`;
 
   try {
+    const note = window.prompt('Aggiungi una nota personalizzata da includere in tutti i biglietti (facoltativa):', '');
     const response = await fetch('/api/participants/send-all', {
-      method: 'POST'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: note || '' })
     });
 
     if (!response.ok) throw new Error('Errore nell\'invio massivo');
@@ -454,6 +465,7 @@ function renderEmailsList() {
       </div>
       <div class="email-item-to">${escapeHtml(email.subject)}</div>
       <div class="email-item-subject">Codice Biglietto: ${escapeHtml(email.participantId)}</div>
+      ${email.note ? `<div class="email-item-note">Nota: ${escapeHtml(email.note)}</div>` : ''}
     `;
 
     item.addEventListener('click', () => selectEmail(email.id));
@@ -508,6 +520,14 @@ function selectEmail(id) {
   mailBodyGreeting.textContent = `Ciao ${guestName},`;
   mailBodyFullname.textContent = guestName;
   mailBodyTicketid.textContent = pId;
+  const emailNote = email.note || (participant && participant.note ? participant.note.trim() : '');
+  if (emailNote) {
+    mailNotePreview.style.display = 'block';
+    mailNotePreview.textContent = `Nota personalizzata: ${emailNote}`;
+  } else {
+    mailNotePreview.style.display = 'none';
+    mailNotePreview.textContent = '';
+  }
   
   // Update event details in preview box
   document.getElementById('mail-header-title').textContent = eventConfig.title || 'Pass d\'ingresso';

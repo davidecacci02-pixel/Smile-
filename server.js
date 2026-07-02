@@ -7,6 +7,7 @@ const https = require('https');
 const { execSync } = require('child_process');
 const QRCode = require('qrcode');
 const nodemailer = require('nodemailer');
+const { createClient } = require('@supabase/supabase-js');
 const { MongoClient } = require('mongodb');
 
 // Brevo (ex Sendinblue) API key - usa HTTP, non bloccato da Render, nessun dominio richiesto
@@ -16,6 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HTTPS_PORT = process.env.HTTPS_PORT || 3001;
 const DB_FILE = path.join(__dirname, 'database.json');
+const EMAILS_FILE = path.join(__dirname, 'emails.json');
 const KEY_FILE = path.join(__dirname, 'key.pem');
 const CERT_FILE = path.join(__dirname, 'cert.pem');
 const SETTINGS_FILE = path.join(__dirname, 'settings.json');
@@ -25,8 +27,10 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-memory store for simulated emails sent during this session
+// Persisted state for participants and simulated emails
+let participantsStore = [];
 let simulatedEmails = [];
+let useMongo = false;
 
 // SSE (Server-Sent Events) clients for real-time dashboard updates
 let sseClients = [];
@@ -90,85 +94,137 @@ function loadConfigFromFiles() {
 }
 loadConfigFromFiles();
 
-// MongoDB Integration Variables
+// Database integration variables
 const MONGODB_URI = process.env.MONGODB_URI || null;
+const SUPABASE_URL = process.env.SUPABASE_URL || null;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
 let mongoClient = null;
 let db = null;
+let supabase = null;
+let useSupabase = false;
+
+async function initSupabaseConnection() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.log('Supabase non configurato. Il server continuerà con il fallback locale.');
+    return false;
+  }
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    useSupabase = true;
+    console.log('Connessione a Supabase stabilita.');
+    return true;
+  } catch (error) {
+    console.error('Errore connessione Supabase:', error.message);
+    supabase = null;
+    useSupabase = false;
+    return false;
+  }
+}
 
 async function initMongoConnection() {
   if (!MONGODB_URI) {
     console.log("MONGODB_URI non definita. Il server funzionerà in modalità locale (senza persistenza cloud).");
+    useMongo = false;
     return false;
   }
   try {
     console.log("Connessione a MongoDB in corso...");
-    mongoClient = new MongoClient(MONGODB_URI);
+    const mongoOptions = {
+      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 10000,
+      maxPoolSize: 10,
+      tls: true
+    };
+
+    if (process.env.MONGO_TLS_INSECURE === 'true') {
+      mongoOptions.tlsAllowInvalidCertificates = true;
+      mongoOptions.tlsAllowInvalidHostnames = true;
+      mongoOptions.tlsInsecure = true;
+    }
+
+    mongoClient = new MongoClient(MONGODB_URI, mongoOptions);
     await mongoClient.connect();
     db = mongoClient.db();
+    useMongo = true;
     console.log("Connessione a MongoDB stabilita con successo.");
     return true;
   } catch (error) {
     console.error("Errore durante la connessione a MongoDB:", error.message);
+    if (error.stack) {
+      console.error(error.stack);
+    }
     mongoClient = null;
     db = null;
+    useMongo = false;
     return false;
   }
 }
 
 async function syncFromDb() {
   if (!db) return;
-  console.log("Sincronizzazione dei file da MongoDB...");
-  const filesToSync = [
-    { filename: 'database.json', localPath: DB_FILE },
-    { filename: 'settings.json', localPath: SETTINGS_FILE },
-    { filename: 'event_settings.json', localPath: EVENT_SETTINGS_FILE }
-  ];
-
-  for (const file of filesToSync) {
-    try {
-      const doc = await db.collection('files').findOne({ filename: file.filename });
-      if (doc && doc.content !== undefined) {
-        console.log(`Ripristino ${file.filename} da MongoDB...`);
-        fs.writeFileSync(file.localPath, typeof doc.content === 'string' ? doc.content : JSON.stringify(doc.content, null, 2));
-      } else {
-        console.log(`${file.filename} non trovato in MongoDB. Creazione copia iniziale nel cloud...`);
-        if (fs.existsSync(file.localPath)) {
-          let content = fs.readFileSync(file.localPath, 'utf8');
-          try {
-            content = JSON.parse(content);
-          } catch (e) {}
-          await db.collection('files').updateOne(
-            { filename: file.filename },
-            { $set: { filename: file.filename, content, updatedAt: new Date() } },
-            { upsert: true }
-          );
-        }
-      }
-    } catch (err) {
-      console.error(`Errore sincronizzazione ${file.filename}:`, err.message);
-    }
-  }
-  console.log("Sincronizzazione da MongoDB completata.");
-}
-
-function backupFileToDb(filename, localPath) {
-  if (!db) return;
+  console.log("Sincronizzazione dati da MongoDB...");
   try {
-    if (fs.existsSync(localPath)) {
-      let content = fs.readFileSync(localPath, 'utf8');
-      try {
-        content = JSON.parse(content);
-      } catch (e) {}
-      db.collection('files').updateOne(
-        { filename: filename },
-        { $set: { filename: filename, content: content, updatedAt: new Date() } },
+    const participantsDoc = await db.collection('app_data').findOne({ key: 'participants' });
+    if (participantsDoc && Array.isArray(participantsDoc.value)) {
+      participantsStore = participantsDoc.value;
+      fs.writeFileSync(DB_FILE, JSON.stringify(participantsStore, null, 2));
+    } else if (fs.existsSync(DB_FILE)) {
+      const localParticipants = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      await db.collection('app_data').updateOne(
+        { key: 'participants' },
+        { $set: { key: 'participants', value: localParticipants, updatedAt: new Date() } },
         { upsert: true }
-      ).catch(err => {
-        console.error(`Errore durante il backup asincrono di ${filename} su MongoDB:`, err.message);
-      });
+      );
+      participantsStore = localParticipants;
+    }
+
+    const emailsDoc = await db.collection('app_data').findOne({ key: 'emails' });
+    if (emailsDoc && Array.isArray(emailsDoc.value)) {
+      simulatedEmails = emailsDoc.value;
+      fs.writeFileSync(EMAILS_FILE, JSON.stringify(simulatedEmails, null, 2));
+    } else if (fs.existsSync(EMAILS_FILE)) {
+      const localEmails = JSON.parse(fs.readFileSync(EMAILS_FILE, 'utf8'));
+      await db.collection('app_data').updateOne(
+        { key: 'emails' },
+        { $set: { key: 'emails', value: localEmails, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      simulatedEmails = localEmails;
+    }
+
+    const settingsDoc = await db.collection('app_data').findOne({ key: 'settings' });
+    if (settingsDoc && settingsDoc.value) {
+      smtpConfig = settingsDoc.value.smtpConfig || smtpConfig;
+      eventConfig = settingsDoc.value.eventConfig || eventConfig;
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(smtpConfig, null, 2));
+      fs.writeFileSync(EVENT_SETTINGS_FILE, JSON.stringify(eventConfig, null, 2));
     }
   } catch (err) {
-    console.error(`Errore lettura file locale per backup ${filename}:`, err.message);
+    console.error('Errore sincronizzazione MongoDB:', err.message);
+  }
+  console.log('Sincronizzazione da MongoDB completata.');
+}
+
+async function backupToDb() {
+  if (!db) return;
+  try {
+    await db.collection('app_data').updateOne(
+      { key: 'participants' },
+      { $set: { key: 'participants', value: participantsStore, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    await db.collection('app_data').updateOne(
+      { key: 'emails' },
+      { $set: { key: 'emails', value: simulatedEmails, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    await db.collection('app_data').updateOne(
+      { key: 'settings' },
+      { $set: { key: 'settings', value: { smtpConfig, eventConfig }, updatedAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('Errore backup dati su MongoDB:', err.message);
   }
 }
 
@@ -186,27 +242,78 @@ function generateSSLCertificates() {
 }
 generateSSLCertificates();
 
-// Helper to read database
-function readParticipants() {
+function loadPersistedData() {
   try {
-    if (!fs.existsSync(DB_FILE)) {
-      return [];
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf8');
+      participantsStore = JSON.parse(raw);
+    } else {
+      participantsStore = [];
     }
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   } catch (error) {
     console.error("Errore lettura database partecipanti:", error);
-    return [];
+    participantsStore = [];
   }
+
+  try {
+    if (fs.existsSync(EMAILS_FILE)) {
+      simulatedEmails = JSON.parse(fs.readFileSync(EMAILS_FILE, 'utf8'));
+    } else {
+      simulatedEmails = [];
+    }
+  } catch (error) {
+    console.error("Errore lettura archivio email:", error);
+    simulatedEmails = [];
+  }
+}
+loadPersistedData();
+
+// Helper to read database
+function readParticipants() {
+  return Array.isArray(participantsStore) ? participantsStore : [];
 }
 
 // Helper to write database
+async function persistToRemote() {
+  if (useSupabase && supabase) {
+    try {
+      await supabase.from('app_data').upsert([
+        { key: 'participants', value: participantsStore },
+        { key: 'emails', value: simulatedEmails },
+        { key: 'settings', value: { smtpConfig, eventConfig } }
+      ], { onConflict: 'key' });
+    } catch (error) {
+      console.error('Errore salvataggio Supabase:', error.message);
+    }
+  } else if (useMongo && db) {
+    try {
+      await backupToDb();
+    } catch (error) {
+      console.error('Errore backup MongoDB:', error.message);
+    }
+  }
+}
+
 function writeParticipants(data) {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-    backupFileToDb('database.json', DB_FILE);
+    participantsStore = Array.isArray(data) ? data : [];
+    fs.writeFileSync(DB_FILE, JSON.stringify(participantsStore, null, 2));
+    persistToRemote().catch(() => {});
     return true;
   } catch (error) {
     console.error("Errore scrittura database partecipanti:", error);
+    return false;
+  }
+}
+
+function writeEmails(data) {
+  try {
+    simulatedEmails = Array.isArray(data) ? data : [];
+    fs.writeFileSync(EMAILS_FILE, JSON.stringify(simulatedEmails, null, 2));
+    persistToRemote().catch(() => {});
+    return true;
+  } catch (error) {
+    console.error("Errore scrittura archivio email:", error);
     return false;
   }
 }
@@ -244,13 +351,15 @@ function sendSimulatedEmail(participant) {
     body: `Ciao <strong>${participant.name} ${participant.surname}</strong>,<br><br>ecco il tuo pass di ingresso per l'evento. Ti preghiamo di mostrare questo codice QR all'ingresso per effettuare il check-in.<br><br>Grazie e a presto!<br><em>Lo staff dell'evento</em>`,
     qrCode: participant.qrCode,
     participantId: participant.id,
+    note: typeof participant.note === 'string' ? participant.note.trim() : '',
     sentAt: new Date().toISOString(),
     smtpStatus: smtpConfig.enabled ? "In invio..." : "Disattivato (Solo Simulazione)",
     smtpError: null
   };
 
-  // Prepend to simulated emails store
+  // Prepend to simulated emails store and persist it
   simulatedEmails.unshift(emailObj);
+  writeEmails(simulatedEmails);
 
   // If real SMTP is configured, attempt real email delivery
   if (smtpConfig && smtpConfig.enabled) {
@@ -375,7 +484,20 @@ async function sendViaBrevo(emailObj, participant) {
 }
 
 // Helper: costruisce l'HTML dell'email biglietto con design premium a tema chiaro (massima compatibilità)
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildEmailHtml(participant, qrCodeSrc) {
+  const noteBlock = participant && participant.note && participant.note.trim()
+    ? `<div style="margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; font-size: 12px; line-height: 1.5;"><strong style="display:block; margin-bottom:4px; color:#0f172a;">Nota personalizzata</strong>${escapeHtml(participant.note.trim())}</div>`
+    : '';
+
   return `
     <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
       <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
@@ -458,7 +580,8 @@ function buildEmailHtml(participant, qrCodeSrc) {
             </table>
             <!-- Info Footer Notice -->
             <div style="margin-top: 20px; padding: 12px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: left;">
-              <p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.4;">
+              ${noteBlock}
+              <p style="margin: 10px 0 0 0; font-size: 11px; color: #64748b; line-height: 1.4;">
                 💡 Il biglietto è valido per un solo ingresso. All'arrivo, il codice verrà scansionato per convalidare l'accesso in tempo reale.
               </p>
             </div>
@@ -471,9 +594,9 @@ function buildEmailHtml(participant, qrCodeSrc) {
 // Database Initialization helper (creates initial test guest list with QR codes)
 async function initDatabase() {
   const initial = [
-    { id: "evt-mrossi-1234", name: "Mario", surname: "Rossi", email: "mario.rossi@example.com", status: "Non Inviato", qrCode: "", checkedInAt: null },
-    { id: "evt-fverdi-5678", name: "Francesca", surname: "Verdi", email: "francesca.verdi@example.com", status: "Non Inviato", qrCode: "", checkedInAt: null },
-    { id: "evt-gbianchi-9012", name: "Giuseppe", surname: "Bianchi", email: "giuseppe.bianchi@example.com", status: "Non Inviato", qrCode: "", checkedInAt: null }
+    { id: "evt-mrossi-1234", name: "Mario", surname: "Rossi", email: "mario.rossi@example.com", status: "Non Inviato", qrCode: "", checkedInAt: null, note: "" },
+    { id: "evt-fverdi-5678", name: "Francesca", surname: "Verdi", email: "francesca.verdi@example.com", status: "Non Inviato", qrCode: "", checkedInAt: null, note: "" },
+    { id: "evt-gbianchi-9012", name: "Giuseppe", surname: "Bianchi", email: "giuseppe.bianchi@example.com", status: "Non Inviato", qrCode: "", checkedInAt: null, note: "" }
   ];
   
   for (let p of initial) {
@@ -513,7 +636,7 @@ app.get('/api/participants', (req, res) => {
 
 // 3. Create participant
 app.post('/api/participants', async (req, res) => {
-  const { name, surname, email } = req.body;
+  const { name, surname, email, note } = req.body;
   if (!name || !surname || !email) {
     return res.status(400).json({ error: "Nome, Cognome e Email sono obbligatori." });
   }
@@ -533,7 +656,8 @@ app.post('/api/participants', async (req, res) => {
       email: email.trim(),
       status: "Inviato",
       qrCode: qrCodeDataUrl,
-      checkedInAt: null
+      checkedInAt: null,
+      note: typeof note === 'string' ? note.trim() : ''
     };
 
     const participants = readParticipants();
@@ -595,6 +719,7 @@ app.delete('/api/participants/:id', (req, res) => {
 // 6. Generate and send email to a specific participant
 app.post('/api/participants/:id/send-email', (req, res) => {
   const { id } = req.params;
+  const { note } = req.body || {};
   const participants = readParticipants();
   const index = participants.findIndex(p => p.id === id);
 
@@ -604,6 +729,9 @@ app.post('/api/participants/:id/send-email', (req, res) => {
 
   // Update status to "Inviato" if it was changed
   participants[index].status = "Inviato";
+  if (typeof note === 'string') {
+    participants[index].note = note.trim();
+  }
   writeParticipants(participants);
 
   const emailObj = sendSimulatedEmail(participants[index]);
@@ -626,7 +754,7 @@ app.post('/api/participants/bulk', async (req, res) => {
     const addedList = [];
 
     for (const p of list) {
-      const { name, surname, email } = p;
+      const { name, surname, email, note } = p;
       if (!name || !surname || !email) continue;
 
       const uniqueSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -643,7 +771,8 @@ app.post('/api/participants/bulk', async (req, res) => {
         email: email.trim(),
         status: "Inviato",
         qrCode: qrCodeDataUrl,
-        checkedInAt: null
+        checkedInAt: null,
+        note: typeof note === 'string' ? note.trim() : ''
       };
 
       participants.push(newParticipant);
@@ -667,11 +796,15 @@ app.post('/api/participants/bulk', async (req, res) => {
 
 // 8. Bulk Send to all non-cancelled participants
 app.post('/api/participants/send-all', (req, res) => {
+  const { note } = req.body || {};
   const participants = readParticipants();
   let sentCount = 0;
   
   participants.forEach(p => {
     if (p.status !== "Annullato") {
+      if (typeof note === 'string') {
+        p.note = note.trim();
+      }
       sendSimulatedEmail(p);
       p.status = "Inviato";
       sentCount++;
@@ -779,6 +912,7 @@ app.get('/api/test-email', async (req, res) => {
 // 11. Clear simulated email list
 app.delete('/api/emails', (req, res) => {
   simulatedEmails = [];
+  writeEmails(simulatedEmails);
   res.json({ message: "Inviate svuotate" });
 });
 
@@ -797,7 +931,9 @@ app.post('/api/settings/smtp', (req, res) => {
   smtpConfig = { host, port, user, pass, enabled: enabled === true };
   try {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(smtpConfig, null, 2));
-    backupFileToDb('settings.json', SETTINGS_FILE);
+    if (useMongo) {
+      backupToDb().catch(() => {});
+    }
   } catch (e) {
     console.error("Errore salvataggio impostazioni SMTP:", e);
   }
@@ -819,7 +955,9 @@ app.post('/api/settings/event', (req, res) => {
   eventConfig = { title, date, time, location };
   try {
     fs.writeFileSync(EVENT_SETTINGS_FILE, JSON.stringify(eventConfig, null, 2));
-    backupFileToDb('event_settings.json', EVENT_SETTINGS_FILE);
+    if (useMongo) {
+      backupToDb().catch(() => {});
+    }
     
     // Broadcast event details changes
     broadcastEvent('event_update', eventConfig);
@@ -848,8 +986,30 @@ app.get('/api/events', (req, res) => {
 
 // Start listening and initialize DB if needed
 async function startServer() {
-  const mongoConnected = await initMongoConnection();
-  if (mongoConnected) {
+  const supabaseConnected = await initSupabaseConnection();
+  const mongoConnected = !supabaseConnected ? await initMongoConnection() : false;
+  if (supabaseConnected) {
+    try {
+      const { data } = await supabase.from('app_data').select('*');
+      if (Array.isArray(data)) {
+        const participantsRow = data.find(item => item.key === 'participants');
+        const emailsRow = data.find(item => item.key === 'emails');
+        const settingsRow = data.find(item => item.key === 'settings');
+        if (participantsRow) participantsStore = participantsRow.value || [];
+        if (emailsRow) simulatedEmails = emailsRow.value || [];
+        if (settingsRow && settingsRow.value) {
+          smtpConfig = settingsRow.value.smtpConfig || smtpConfig;
+          eventConfig = settingsRow.value.eventConfig || eventConfig;
+        }
+        fs.writeFileSync(DB_FILE, JSON.stringify(participantsStore, null, 2));
+        fs.writeFileSync(EMAILS_FILE, JSON.stringify(simulatedEmails, null, 2));
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(smtpConfig, null, 2));
+        fs.writeFileSync(EVENT_SETTINGS_FILE, JSON.stringify(eventConfig, null, 2));
+      }
+    } catch (error) {
+      console.error('Errore caricamento dati da Supabase:', error.message);
+    }
+  } else if (mongoConnected) {
     await syncFromDb();
     loadConfigFromFiles();
   }
@@ -893,4 +1053,15 @@ async function loadOrInitParticipants() {
   }
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  buildEmailHtml,
+  app,
+  startServer,
+  readParticipants,
+  writeParticipants,
+  writeEmails
+};
