@@ -551,7 +551,7 @@ function buildEmailHtml(participant, qrCodeSrc) {
                         <div style="color: #0f172a; font-size: 14px; font-weight: bold;">${participant.name} ${participant.surname}</div>
                       </td>
                       <td style="width: 45%; text-align: right; vertical-align: top; padding-bottom: 12px;">
-                        <div style="color: #64748b; font-size: 9px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">TICKET ID</div>
+                        <div style="color: #64748b; font-size: 9px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">ID BIGLIETTO</div>
                         <div style="color: #7c3aed; font-size: 13px; font-weight: bold; font-family: monospace;">${participant.id}</div>
                       </td>
                     </tr>
