@@ -531,7 +531,7 @@ function selectEmail(id) {
   }
   
   // Update event details in preview box
-  document.getElementById('mail-header-title').textContent = eventConfig.title || 'Pass d\'ingresso';
+  document.getElementById('mail-header-title').textContent = eventConfig.title || 'Biglietto d\'ingresso';
   document.getElementById('mail-preview-date').textContent = eventConfig.date ? formatDateIt(eventConfig.date) : 'N/D';
   document.getElementById('mail-preview-time').textContent = eventConfig.time || 'N/D';
   document.getElementById('mail-preview-location').textContent = eventConfig.location || 'N/D';

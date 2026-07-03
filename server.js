@@ -411,6 +411,9 @@ async function sendRealEmail(emailObj, participant) {
       to: emailObj.to,
       subject: emailObj.subject,
       html: htmlContent,
+      headers: {
+        'Content-Language': 'it'
+      },
       attachments: [
         {
           filename: 'qrcode.png',
@@ -448,7 +451,8 @@ async function sendViaBrevo(emailObj, participant) {
     sender: { name: senderName, email: senderEmail },
     to: [{ email: emailObj.to }],
     subject: emailObj.subject,
-    htmlContent: htmlContent
+    htmlContent: htmlContent,
+    headers: [{ name: 'Content-Language', value: 'it' }]
   });
 
   return new Promise((resolve, reject) => {
@@ -518,7 +522,17 @@ function buildEmailHtml(participant, qrCodeSrc) {
     : '';
 
   return `
-    <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
+    <!DOCTYPE html>
+    <html lang="it">
+    <head>
+      <meta charset="UTF-8">
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+      <meta http-equiv="Content-Language" content="it">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Biglietto Evento</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+      <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
       <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
         <tr>
           <td style="padding: 24px;">
