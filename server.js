@@ -512,7 +512,7 @@ function buildEmailHtml(participant, qrCodeSrc) {
   const finalNoteText = eventNoteText || participantNoteText;
   const noteBlock = finalNoteText
     ? `<div style="margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; line-height: 1.65; box-shadow: inset 0 0 0 1px rgba(99,102,241,0.08);">
-          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #4338ca; margin-bottom: 8px;">Messaggio speciale</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #0f172a; margin-bottom: 8px;">NOTA</div>
           <div style="color: #334155;">${escapeHtml(finalNoteText)}</div>
         </div>`
     : '';
