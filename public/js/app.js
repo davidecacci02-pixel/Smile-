@@ -15,7 +15,6 @@ const addGuestForm = document.getElementById('add-guest-form');
 const guestNameInput = document.getElementById('guest-name');
 const guestSurnameInput = document.getElementById('guest-surname');
 const guestEmailInput = document.getElementById('guest-email');
-const guestNoteInput = document.getElementById('guest-note');
 const guestSearchInput = document.getElementById('guest-search');
 const btnRefreshGuests = document.getElementById('btn-refresh-guests');
 const btnExportGuests = document.getElementById('btn-export-guests');
@@ -71,6 +70,7 @@ const eventTitleInput = document.getElementById('event-title');
 const eventDateInput = document.getElementById('event-date');
 const eventTimeInput = document.getElementById('event-time');
 const eventLocationInput = document.getElementById('event-location');
+const eventNoteInput = document.getElementById('event-note');
 
 // Modal Elements for Quick Simulation
 const checkinResultModal = document.getElementById('checkin-result-modal');
@@ -270,7 +270,6 @@ async function handleAddGuest(e) {
   const name = guestNameInput.value.trim();
   const surname = guestSurnameInput.value.trim();
   const email = guestEmailInput.value.trim();
-  const note = guestNoteInput.value.trim();
 
   if (!name || !surname || !email) return;
 
@@ -282,7 +281,7 @@ async function handleAddGuest(e) {
     const response = await fetch('/api/participants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, surname, email, note })
+      body: JSON.stringify({ name, surname, email })
     });
 
     if (!response.ok) {
@@ -316,12 +315,10 @@ async function handleSendSingleQr(id, buttonElement) {
   buttonElement.innerHTML = `<span class="spinner"></span> Invio...`;
 
   try {
-    const note = window.prompt('Aggiungi una nota personalizzata da includere nel biglietto (facoltativa):', '');
-    const payload = note === null ? {} : { note: note };
-    const response = await fetch(`/api/participants/${id}/send-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+const response = await fetch(`/api/participants/${id}/send-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
     });
 
     if (!response.ok) {
@@ -374,11 +371,10 @@ async function handleSendAll() {
   btnSendAll.innerHTML = `<span class="spinner"></span> Invio di gruppo...`;
 
   try {
-    const note = window.prompt('Aggiungi una nota personalizzata da includere in tutti i biglietti (facoltativa):', '');
     const response = await fetch('/api/participants/send-all', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note: note || '' })
+      body: JSON.stringify({})
     });
 
     if (!response.ok) throw new Error('Errore nell\'invio massivo');
@@ -753,6 +749,7 @@ function setupSSE() {
         if (document.activeElement !== eventDateInput) eventDateInput.value = eventConfig.date || '';
         if (document.activeElement !== eventTimeInput) eventTimeInput.value = eventConfig.time || '';
         if (document.activeElement !== eventLocationInput) eventLocationInput.value = eventConfig.location || '';
+        if (document.activeElement !== eventNoteInput) eventNoteInput.value = eventConfig.note || '';
         
         // Refresh active email details preview
         if (activeEmailId) {
@@ -779,6 +776,7 @@ async function fetchEventSettings() {
     eventDateInput.value = eventConfig.date || '';
     eventTimeInput.value = eventConfig.time || '';
     eventLocationInput.value = eventConfig.location || '';
+    eventNoteInput.value = eventConfig.note || '';
   } catch (e) {
     console.error("Errore nel recupero dettagli evento:", e);
   }
@@ -792,7 +790,8 @@ async function handleSaveEventSettings(e) {
     title: eventTitleInput.value.trim(),
     date: eventDateInput.value,
     time: eventTimeInput.value,
-    location: eventLocationInput.value.trim()
+    location: eventLocationInput.value.trim(),
+    note: eventNoteInput.value.trim()
   };
 
   try {

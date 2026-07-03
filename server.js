@@ -51,7 +51,8 @@ let eventConfig = {
   title: process.env.EVENT_TITLE || "Mio Evento Speciale",
   date: process.env.EVENT_DATE || new Date().toISOString().split('T')[0],
   time: process.env.EVENT_TIME || "20:00",
-  location: process.env.EVENT_LOCATION || "Roma"
+  location: process.env.EVENT_LOCATION || "Roma",
+  note: process.env.EVENT_NOTE || ""
 };
 
 function loadConfigFromFiles() {
@@ -80,12 +81,20 @@ function loadConfigFromFiles() {
       title: process.env.EVENT_TITLE,
       date: process.env.EVENT_DATE || new Date().toISOString().split('T')[0],
       time: process.env.EVENT_TIME || "20:00",
-      location: process.env.EVENT_LOCATION || "Roma"
+      location: process.env.EVENT_LOCATION || "Roma",
+      note: process.env.EVENT_NOTE || ""
     };
     console.log('Configurazione evento caricata da variabili d\'ambiente.');
   } else if (fs.existsSync(EVENT_SETTINGS_FILE)) {
     try {
-      eventConfig = JSON.parse(fs.readFileSync(EVENT_SETTINGS_FILE, 'utf8'));
+      const persistedEventConfig = JSON.parse(fs.readFileSync(EVENT_SETTINGS_FILE, 'utf8'));
+      eventConfig = {
+        title: persistedEventConfig.title || eventConfig.title,
+        date: persistedEventConfig.date || eventConfig.date,
+        time: persistedEventConfig.time || eventConfig.time,
+        location: persistedEventConfig.location || eventConfig.location,
+        note: persistedEventConfig.note || ""
+      };
       console.log('Configurazione evento caricata da event_settings.json locale.');
     } catch (e) {
       console.error("Errore lettura event_settings.json:", e);
@@ -344,6 +353,10 @@ function formatDateIt(dateStr) {
 // Helper: Simulate email sending and trigger real SMTP delivery if active
 function sendSimulatedEmail(participant) {
   const emailId = `mail-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const eventNoteText = eventConfig && typeof eventConfig.note === 'string' ? eventConfig.note.trim() : '';
+  const guestNoteText = typeof participant.note === 'string' ? participant.note.trim() : '';
+  const finalNoteText = eventNoteText || guestNoteText;
+
   const emailObj = {
     id: emailId,
     to: participant.email,
@@ -351,7 +364,7 @@ function sendSimulatedEmail(participant) {
     body: `Ciao <strong>${participant.name} ${participant.surname}</strong>,<br><br>ecco il tuo pass di ingresso per l'evento. Ti preghiamo di mostrare questo codice QR all'ingresso per effettuare il check-in.<br><br>Grazie e a presto!<br><em>Lo staff dell'evento</em>`,
     qrCode: participant.qrCode,
     participantId: participant.id,
-    note: typeof participant.note === 'string' ? participant.note.trim() : '',
+    note: finalNoteText,
     sentAt: new Date().toISOString(),
     smtpStatus: smtpConfig.enabled ? "In invio..." : "Disattivato (Solo Simulazione)",
     smtpError: null
@@ -494,10 +507,13 @@ function escapeHtml(value) {
 }
 
 function buildEmailHtml(participant, qrCodeSrc) {
-  const noteBlock = participant && participant.note && participant.note.trim()
+  const eventNoteText = eventConfig && typeof eventConfig.note === 'string' ? eventConfig.note.trim() : '';
+  const participantNoteText = participant && typeof participant.note === 'string' ? participant.note.trim() : '';
+  const finalNoteText = eventNoteText || participantNoteText;
+  const noteBlock = finalNoteText
     ? `<div style="margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; line-height: 1.65; box-shadow: inset 0 0 0 1px rgba(99,102,241,0.08);">
           <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #4338ca; margin-bottom: 8px;">Messaggio speciale</div>
-          <div style="color: #334155;">${escapeHtml(participant.note.trim())}</div>
+          <div style="color: #334155;">${escapeHtml(finalNoteText)}</div>
         </div>`
     : '';
 
@@ -950,12 +966,18 @@ app.get('/api/settings/event', (req, res) => {
 
 // 15. Save event details settings
 app.post('/api/settings/event', (req, res) => {
-  const { title, date, time, location } = req.body;
+  const { title, date, time, location, note } = req.body;
   if (!title || !date || !time || !location) {
     return res.status(400).json({ error: "Tutti i campi dell'evento sono obbligatori." });
   }
   
-  eventConfig = { title, date, time, location };
+  eventConfig = {
+    title,
+    date,
+    time,
+    location,
+    note: typeof note === 'string' ? note.trim() : ''
+  };
   try {
     fs.writeFileSync(EVENT_SETTINGS_FILE, JSON.stringify(eventConfig, null, 2));
     if (useMongo) {

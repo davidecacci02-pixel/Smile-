@@ -105,11 +105,6 @@
                 <input type="email" id="guest-email" class="form-input" placeholder="Es: mario.rossi@email.com" required>
               </div>
 
-              <div class="form-group">
-                <label class="form-label" for="guest-note">Nota personalizzata</label>
-                <textarea id="guest-note" class="form-input" rows="3" placeholder="Es: Porta il documento d'identità all'ingresso"></textarea>
-              </div>
-              
               <button type="submit" class="btn btn-primary" id="btn-add-guest">
                 Aggiungi Partecipante
               </button>
@@ -403,6 +398,11 @@
             <div class="form-group">
               <label class="form-label" for="event-location">Luogo / Location</label>
               <input type="text" id="event-location" class="form-input" placeholder="Es: Via Roma 123, Milano" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="event-note">Messaggio Evento</label>
+              <textarea id="event-note" class="form-input" rows="3" placeholder="Es: Porta il documento d'identità all'ingresso"></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
