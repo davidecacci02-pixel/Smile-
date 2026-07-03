@@ -374,8 +374,8 @@ function sendSimulatedEmail(participant) {
   simulatedEmails.unshift(emailObj);
   writeEmails(simulatedEmails);
 
-  // If real SMTP is configured, attempt real email delivery
-  if (smtpConfig && smtpConfig.enabled) {
+  // If real SMTP or Brevo is configured, attempt real email delivery
+  if ((smtpConfig && smtpConfig.enabled) || brevoApiKey) {
     sendRealEmail(emailObj, participant);
   }
 
@@ -452,7 +452,7 @@ async function sendViaBrevo(emailObj, participant) {
     to: [{ email: emailObj.to }],
     subject: emailObj.subject,
     htmlContent: htmlContent,
-    headers: [{ name: 'Content-Language', value: 'it' }]
+    headers: { 'Content-Language': 'it' }
   });
 
   return new Promise((resolve, reject) => {
@@ -521,19 +521,18 @@ function buildEmailHtml(participant, qrCodeSrc) {
         </div>`
     : '';
 
-  return `
-    <!DOCTYPE html>
-    <html lang="it">
-    <head>
-      <meta charset="UTF-8">
-      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-      <meta http-equiv="Content-Language" content="it">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Biglietto Evento</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f1f5f9;">
-      <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
-      <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta http-equiv="Content-Language" content="it">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biglietto Evento</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+  <div style="background-color: #f1f5f9; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center;">
+    <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 460px; margin: 0 auto; text-align: left; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
         <tr>
           <td style="padding: 24px;">
             <p style="font-size: 14px; color: #0f172a; margin-top: 0; margin-bottom: 6px; font-weight: 600;">Ciao ${participant.name} ${participant.surname},</p>
@@ -621,7 +620,9 @@ function buildEmailHtml(participant, qrCodeSrc) {
           </td>
         </tr>
       </table>
-    </div>`;
+    </div>
+  </body>
+</html>`;
 }
 
 // Database Initialization helper (creates initial test guest list with QR codes)
